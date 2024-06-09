@@ -19,6 +19,8 @@ eval_args:
 ```
 
 timestamp is encoded somewhere. where this happen ? 
-    happen during loading dataset, the timestampt is 0-1 encoded.
+    happen during loading dataset, the timestamp is 0-1 encoded.
     _normalize() did this
     => how to encode the cutoff using the same strategy
+    => how to access time field before it is normalized
+
