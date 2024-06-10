@@ -18,6 +18,14 @@ eval_args:
   mode: full
 ```
 
+`TimeCutoffDataset` behaves as follow:
+1. Select a cutoff date, the cutoff is also applied 0-1 encoding in _normalize()
+2. To split train/val/test: For each user, the cutoff date separates the interaction list (sorted by timestamp) into two halves. In the first half, all but last interaction (aka the interaction closest to the cutoff date) belong to the training split. The last interaction belongs to the validating split and the first interaction of the second half belongs to the testing set. As such, for each user, there is only one interaction of that user in the validating set and one interaction in the testing set.
+
+Corner cases:
+  - If a user has interactions happened all before cutoff date, that user won't appear in test set
+  - If all interactions of a user are after the cutoff date, that user won't appear in neither training, validating nor testing set.
+
 timestamp is encoded somewhere. where this happen ? 
     happen during loading dataset, the timestamp is 0-1 encoded.
     _normalize() did this
