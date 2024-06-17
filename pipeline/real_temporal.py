@@ -1,3 +1,4 @@
+import sys
 from logging import getLogger
 
 import numpy as np
@@ -6,7 +7,7 @@ import numpy as np
 import torch
 from pandas import DataFrame
 from recbole.config import Config
-
+from recbole.data import data_preparation
 from recbole.data.dataset import Dataset, SequentialDataset
 from recbole.data.transform import construct_transform
 from recbole.utils import (
@@ -16,16 +17,10 @@ from recbole.utils import (
     get_model,
     get_trainer,
     init_logger,
+    init_seed,
     set_color,
 )
-
-from recbole.data import (
-    create_dataset,
-    data_preparation,
-)
 from torch import Tensor
-
-MODELTYPE_CUTOFF = 7
 
 
 class TimeCutoffDataset(SequentialDataset):
@@ -42,8 +37,6 @@ class TimeCutoffDataset(SequentialDataset):
 
         # self.timestamp_max = np.max(feat_timestamp[self.time_field])
         # self.timestamp_min = np.min(feat_timestamp[self.time_field])
-
-        assert self.inter_feat is not None
 
         self.timestamp_max = np.max(self.inter_feat[self.time_field])
         self.timestamp_min = np.min(self.inter_feat[self.time_field])
@@ -138,6 +131,9 @@ class TimeCutoffDataset(SequentialDataset):
         def norm_timestamp(timestamp: float):
             mx, mn = self.timestamp_max, self.timestamp_min
             if mx == mn:
+                self.logger.warning(
+                    f"All the same value in [{field}] from [{feat}_feat]."
+                )
                 arr = 1.0
             else:
                 arr = (timestamp - mn) / (mx - mn)
@@ -159,15 +155,7 @@ class TimeCutoffDataset(SequentialDataset):
         grouped_inter_feat_index = self._grouped_index(inter_feat_grouby_numpy)
 
         indices_train, indices_val, indices_test = [], [], []
-        i = 0
         for grouped_index in grouped_inter_feat_index:
-        # FIXME: HoangLe [Jun-13]: remove the following
-            i += 1
-            if i > 2:
-                break
-
-
-
             df_each_user = self.inter_feat[grouped_index]
 
             n_trainval = torch.sum(
@@ -196,59 +184,48 @@ class TimeCutoffDataset(SequentialDataset):
         return next_ds
 
 
-if __name__ == "__main__":
-    model_name = "NPE"
-    dataset_name = "ml-100k"
+def run_recbole_with_TimeCutoff(
+    model=None,
+    dataset=None,
+    config_file_list=None,
+    config_dict=None,
+    saved=True,
+    queue=None,
+):
+    r"""A fast running api, which includes the complete process of
+    training and testing a model on a specified dataset
 
-    config_dict = {
-        "eval_args": {
-            "order": "TO",
-            "split": {"CO": "886349689"},
-            "group_by": "user_id",
-        },
-        "train_neg_sample_args": None,
-    }
-
-    config = Config(model=model_name, dataset=dataset_name, config_dict=config_dict)
-
-    # Set model_type as type of TimeCutoffDataset
-    config["MODEL_TYPE"] = MODELTYPE_CUTOFF
-    dataset = TimeCutoffDataset(config)
-
-
-
-
-    config_dict = {
-        'eval_args': {
-            "order": "TO",
-            'split': { "LS": "valid_and_test" },
-            "group_by": 'user_id'
-        },
-        'train_neg_sample_args': None
-    }
-
+    Args:
+        model (str, optional): Model name. Defaults to ``None``.
+        dataset (str, optional): Dataset name. Defaults to ``None``.
+        config_file_list (list, optional): Config files used to modify experiment parameters. Defaults to ``None``.
+        config_dict (dict, optional): Parameters dictionary used to modify experiment parameters. Defaults to ``None``.
+        saved (bool, optional): Whether to save the model. Defaults to ``True``.
+        queue (torch.multiprocessing.Queue, optional): The queue used to pass the result to the main process. Defaults to ``None``.
+    """
+    # configurations initialization
     config = Config(
-        model=model_name,
-        dataset=dataset_name,
-        config_dict=config_dict
+        model=model,
+        dataset=dataset,
+        config_file_list=config_file_list,
+        config_dict=config_dict,
     )
-
-    print(f"HOANGLE: config['MODEL_TYPE'] = {config['MODEL_TYPE']}")
-
-    dataset = create_dataset(config)
-
-
-
-
-
-
-
-    train_data, valid_data, test_data = data_preparation(config, dataset)
-    saved = True
-
+    init_seed(config["seed"], config["reproducibility"])
+    # logger initialization
     init_logger(config)
     logger = getLogger()
+    logger.info(sys.argv)
+    logger.info(config)
 
+    # dataset filtering
+    dataset = TimeCutoffDataset(config)
+    logger.info(dataset)
+
+    # dataset splitting
+    train_data, valid_data, test_data = data_preparation(config, dataset)
+
+    # model loading and initialization
+    init_seed(config["seed"] + config["local_rank"], config["reproducibility"])
     model = get_model(config["model"])(config, train_data._dataset).to(config["device"])
     logger.info(model)
 
@@ -285,4 +262,33 @@ if __name__ == "__main__":
         "test_result": test_result,
     }
 
-    print(result)
+    if not config["single_spec"]:
+        dist.destroy_process_group()
+
+    if config["local_rank"] == 0 and queue is not None:
+        queue.put(result)  # for multiprocessing, e.g., mp.spawn
+
+    return result  # for the single process
+
+
+def main():
+    model_name = "NPE"
+    dataset_name = "ml-100k"
+
+    config_dict = {
+        "use_gpu": True,
+        "eval_args": {
+            "order": "TO",
+            "split": {"CO": "886349689"},
+            "group_by": "user_id",
+        },
+        "train_neg_sample_args": None,
+    }
+
+    run_recbole_with_TimeCutoff(
+        model=model_name, dataset=dataset_name, config_dict=config_dict
+    )
+
+
+if __name__ == "__main__":
+    main()

@@ -23,9 +23,9 @@ train_batch_size: 4096
 eval_batch_size: 4096
 train_neg_sample_args: ~
 eval_args:
-  group_by: None
+  group_by: user_id
   order: TO
-  split: { "LS": "valid_and_test" }
+  split: { "CO": "886349689" }
   mode: full
 metrics: ["Recall", "MRR", "NDCG", "Hit", "Precision"]
 topk: 10
