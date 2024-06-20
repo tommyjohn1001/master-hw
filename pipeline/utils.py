@@ -32,4 +32,6 @@ def get_logger():
     logger.add(fh)
     logger.add(get_path_log())
 
+    logging.basicConfig(handlers=[fh])
+
     return logger
