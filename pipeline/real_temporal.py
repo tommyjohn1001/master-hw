@@ -32,11 +32,6 @@ class TimeCutoffDataset(SequentialDataset):
 
     def _normalize(self):
         # Extract max-min of field self.time_field
-        # feat_timestamp = self.field2feats(self.time_field)[0]
-        # assert feat_timestamp and self.time_field in feat_timestamp, f"Feat not exist field '{self.time_field}'"
-
-        # self.timestamp_max = np.max(feat_timestamp[self.time_field])
-        # self.timestamp_min = np.min(feat_timestamp[self.time_field])
 
         self.timestamp_max = np.max(self.inter_feat[self.time_field])
         self.timestamp_min = np.min(self.inter_feat[self.time_field])
@@ -126,20 +121,22 @@ class TimeCutoffDataset(SequentialDataset):
 
         # Convert cutoff to suitable format and apply 0-1 normalization with max/min timestamp
         cutoff_conv = float(cutoff)
-        self.cutoff = cutoff_conv
 
-        def norm_timestamp(timestamp: float):
-            mx, mn = self.timestamp_max, self.timestamp_min
-            if mx == mn:
-                self.logger.warning(
-                    f"All the same value in [{field}] from [{feat}_feat]."
-                )
-                arr = 1.0
-            else:
-                arr = (timestamp - mn) / (mx - mn)
-            return arr
+        is_normalized = (
+            self.config["normalize_field"]
+            and self.time_field in self.config["normalize_field"]
+        ) or self.config["normalize_all"]
+        if is_normalized:
 
-        cutoff_conv = norm_timestamp(cutoff_conv)
+            def norm_timestamp(timestamp: float):
+                mx, mn = self.timestamp_max, self.timestamp_min
+                if mx == mn:
+                    arr = 1.0
+                else:
+                    arr = (timestamp - mn) / (mx - mn)
+                return arr
+
+            cutoff_conv = norm_timestamp(cutoff_conv)
         self.cutoff_conv = cutoff_conv
 
         match self.inter_feat[group_by]:
