@@ -3,6 +3,7 @@ from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
+from recbole.utils.logger import RemoveColorFilter
 
 tag = datetime.now().strftime("%b%d_%H%M%S")
 PATH_ROOT = Path("logs") / f"{tag}"
@@ -11,7 +12,7 @@ PATH_ROOT.mkdir(parents=True, exist_ok=True)
 
 
 def get_path_log():
-    return (PATH_ROOT / "log").as_posix()
+    return (PATH_ROOT / "log.log").as_posix()
 
 
 def get_path_conf():
@@ -28,10 +29,11 @@ def get_path_tune_log():
 
 def get_logger():
     fh = logging.FileHandler(get_path_log())
+    remove_color_filter = RemoveColorFilter()
+    fh.addFilter(remove_color_filter)
 
-    logger.add(fh)
-    logger.add(get_path_log())
+    logger.add(fh, colorize=False)
 
-    logging.basicConfig(handlers=[fh])
+    logging.basicConfig(handlers=[fh], encoding="utf-8")
 
     return logger
