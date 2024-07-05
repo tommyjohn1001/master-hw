@@ -190,3 +190,11 @@ _paper/
 experiments/
 docs
 .vscode/
+*/**/data/
+
+log/
+log_tensorboard/
+saved/
+logs/
+dataset/
+data/

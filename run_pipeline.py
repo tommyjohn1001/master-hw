@@ -1,159 +1,142 @@
-from collections import defaultdict
-from logging import getLogger
+import json
 
-import pandas as pd
+import yaml
 from recbole.config import Config
 from recbole.data import create_dataset, data_preparation
-from recbole.utils import get_model, get_trainer, init_logger, init_seed
+from recbole.trainer import HyperTuning
+from recbole.utils import get_model, get_trainer, init_seed
 
-from pipeline import utils
-from pipeline.real_temporal import TimeCutoffDataset
+from src import utils
+from src.real_temporal import TimeCutoffDataset
 
 
-def get_suitable_cutoff(ds_name: str) -> tuple:
-    """Get suitable cutoff timestamp: at which there are the most active users
-
-    Args:
-        ds_name (str): dataset name
-
-    Returns:
-        tuple: suitable timestamp and the number of active users
-    """
-
-    # Get dataset without normalizing the timestamp
-    config_dict = {
-        "normalize_all": False,
-        "load_col": {"inter": ["user_id", "item_id", "timestamp"]},
-        "train_neg_sample_args": None,
-        "eval_args": {
-            "order": "TO",
-            "split": {"LS": "valid_and_test"},
-            "group_by": None,
-            "mode": "full",
-        },
-    }
+def objective_function(config_dict=None, config_file_list=None):
     config = Config(
-        model="NPE",
-        dataset=ds_name,
         config_dict=config_dict,
+        config_file_list=config_file_list,
     )
+
     init_seed(config["seed"], config["reproducibility"])
-    df = create_dataset(config).inter_feat.copy()
 
-    # Create dataframe of users and corresponding first/last timestamp
-    user_max_ts = df.groupby("user_id")["timestamp"].max()
-    user_min_ts = df.groupby("user_id")["timestamp"].min()
-    df_user = pd.DataFrame(
-        {
-            "max": user_max_ts,
-            "min": user_min_ts,
-        },
-        index=user_max_ts.index,
+    # Define data related things
+    if config["use_cutoff"] is True:
+        dataset = TimeCutoffDataset(config)
+    else:
+        dataset = create_dataset(config)
+    train_data, valid_data, test_data = data_preparation(config, dataset)
+
+    # Define model
+    model_name = config["model"]
+    model = get_model(model_name)(config, train_data._dataset).to(config["device"])
+
+    # Define trainer
+    trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
+
+    # Start training
+    best_valid_score, best_valid_result = trainer.fit(
+        train_data, valid_data, verbose=False
     )
 
-    counts = defaultdict(int)
-    for ts in df_user["min"]:
-        counts[ts] += 1
-    for ts in df_user["max"]:
-        counts[ts] -= 1
+    # Start evaluating
+    test_result = trainer.evaluate(test_data)
 
-    timestamps = sorted(counts.keys())
-    accum = {}
-
-    s = 0
-    for ts in timestamps:
-        s += counts[ts]
-        accum[ts] = s
-    series = pd.Series(accum)
-
-    suitable_ts = series.idxmax()
-    max_active_user = series[suitable_ts]
-
-    return suitable_ts, max_active_user
+    return {
+        "model": model_name,
+        "best_valid_score": best_valid_score,
+        "valid_score_bigger": config["valid_metric_bigger"],
+        "best_valid_result": best_valid_result,
+        "test_result": test_result,
+    }
 
 
 def main():
-    use_TimeCutoff = True
-    reproducible = True
     seed = 42
+
+    args = utils.get_args()
+    paths = utils.Paths(args.model, args.dataset)
+    logger = utils.get_logger(args.model, args.dataset)
+
+    # Basic checking
+    if args.use_cutoff is True and args.cutoff_time is None:
+        logger.error("'cutoff_time' must be specified")
+        exit(1)
+
+    # Define config
 
     # fmt: off
     config_dict = {
         # For model
-        "model": "Caser",
-        "embedding_size": 64,
-        "n_v": 4,
-        "n_h": 8,
-        "reg_weight": 1e-4,
-        "dropout_prob": 0.4,
-        "loss_type": "CE",
+        "model": args.model,
+        "loss_type": args.loss_type,
 
         # For data
-        "dataset": "ml-1m",
+        "dataset": args.dataset,
         "load_col": {"inter": ["user_id", "item_id", "timestamp"]},
-        "use_TimeCutoff": use_TimeCutoff,
+        "use_cutoff": args.use_cutoff,
 
         # For training
-        "epochs": 500,
-        "train_batch_size": 16384,
-        "eval_step": 5,
-        "stopping_step": 5,
+        "epochs": 20,
+        "train_batch_size": 4096,
+        "eval_step": 1,
+        "stopping_step": 3,
         "learning_rate": 1e-3,
-        "train_neg_sample_args": None,
-        # 'train_neg_sample_args': {
-        #     'distribution': 'uniform',
-        #     'sample_num': 1,
-        #     'dynamic':  True,
-        #     'candidate_num': 0
-        # },
-
+        
         # For evaluation
-        "eval_batch_size": 16384,
+        "eval_batch_size": 4096,
         "metrics": ["NDCG", "Precision", "Recall", "MRR", "Hit", "MAP"],
         "topk": 10,
         "valid_metric": "NDCG@10",
 
         # Environment
+        'gpu_id': 0,
+        "seed": seed,
+        "reproducibility": args.reproducible,
         'device': 'cuda',
         'use_gpu': True,
-        'gpu_id': 0,
-        "checkpoint_dir": utils.get_path_dir_ckpt(),
+        'data_path': paths.get_path_data_raw(),
+        "checkpoint_dir": paths.get_path_dir_ckpt(),
         "show_progress": True,
-        "reproducibility": reproducible,
-        "seed": seed,
+        'save_dataset': True,
+        'dataset_save_path': paths.get_path_data_processed(),
+        'save_dataloaders': True,
+        'dataloaders_save_path': paths.get_path_dataloader(),
     }
     # fmt: on
 
-    if use_TimeCutoff is True:
-        config_dict = {
-            **config_dict,
-            "eval_args": {
-                "order": "TO",
-                "split": {"CO": "976324045"},
-                "group_by": "user_id",
-                "mode": "full",
-            },
+    if args.use_cutoff is True:
+        config_dict["eval_args"] = {
+            "order": "TO",
+            "split": {"CO": args.cutoff_time},
+            "group_by": "user_id",
+            "mode": "full",
         }
     else:
-        config_dict = {
-            **config_dict,
-            "eval_args": {
-                "order": "TO",
-                "split": {"LS": "valid_and_test"},
-                "group_by": None,
-                "mode": "full",
-            },
+        config_dict["eval_args"] = {
+            "order": "TO",
+            "split": {"LS": "valid_and_test"},
+            "group_by": None,
+            "mode": "full",
         }
 
-    config = Config(config_dict=config_dict)
+    if args.loss_type == "CE":
+        config_dict["train_neg_sample_args"] = None
+    else:
+        config_dict["train_neg_sample_args"] = {
+            "distribution": "uniform",
+            "sample_num": 1,
+            # "dynamic": True,
+            # "candidate_num": 0,
+        }
+
+    with open(paths.get_path_conf(), "w+") as f:
+        yaml.dump(config_dict, f, allow_unicode=True)
+
+    config = Config(args.model, args.dataset, config_dict=config_dict)
 
     init_seed(config["seed"], config["reproducibility"])
-    init_logger(config)
-
-    logger = getLogger()
 
     # Define data related things
-    if use_TimeCutoff:
+    if args.use_cutoff is True:
         dataset = TimeCutoffDataset(config)
     else:
         dataset = create_dataset(config)
@@ -172,19 +155,52 @@ def main():
     logger.info(model)
 
     best_valid_score, best_valid_result = trainer.fit(
-        train_data, valid_data, verbose=True, show_progress=config["show_progress"]
+        train_data,
+        valid_data,
+        verbose=True,
+        show_progress=config["show_progress"],
     )
 
-    print("** Validation result")
-    print(f"best_valid_score: {best_valid_score:.4f}")
+    logger.info("** Validation result")
+    logger.info(f"best_valid_score: {best_valid_score:.4f}")
     for metric, val in best_valid_result.items():
-        print(f"{metric:<15}: {val:.4f}")
+        logger.info(f"{metric:<15}: {val:.4f}")
 
     test_result = trainer.evaluate(test_data)
 
-    print("** Test result")
+    logger.info("** Test result")
     for metric, val in test_result.items():
-        print(f"{metric:<15}: {val:.4f}")
+        logger.info(f"{metric:<15}: {val:.4f}")
+
+    ## Start tuning
+    tuning_algo = "bayes"
+    early_stop = 3
+    max_evals = 5
+
+    hp = HyperTuning(
+        objective_function=objective_function,
+        algo=tuning_algo,
+        early_stop=early_stop,
+        max_evals=max_evals,
+        fixed_config_file_list=[paths.get_path_conf()],
+        params_file=paths.get_path_tuning_conf(),
+    )
+    hp.run()
+
+    # print best parameters
+    logger.info("best params: ", hp.best_params)
+
+    # print best result
+    logger.info("best result: ")
+    logger.info(hp.params2result[hp.params2str(hp.best_params)])
+
+    # export to JSON file
+    tune_result = {
+        "best_params": hp.best_params,
+        "best_result": hp.params2result[hp.params2str(hp.best_params)],
+    }
+    with open(paths.get_path_tuning_log(), "w+") as f:
+        json.dump(tune_result, f, indent=2, ensure_ascii=False)
 
 
 if __name__ == "__main__":
