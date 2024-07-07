@@ -1,0 +1,28 @@
+{
+  "best_params": {
+    "dropout_prob": 0.2,
+    "embedding_size": 64,
+    "learning_rate": 0.001
+  },
+  "best_result": {
+    "model": "NPE",
+    "best_valid_score": 0.014,
+    "valid_score_bigger": true,
+    "best_valid_result": {
+      "ndcg@10": 0.014,
+      "precision@10": 0.0031,
+      "recall@10": 0.0308,
+      "mrr@10": 0.0089,
+      "hit@10": 0.0308,
+      "map@10": 0.0089
+    },
+    "test_result": {
+      "ndcg@10": 0.0104,
+      "precision@10": 0.0024,
+      "recall@10": 0.0235,
+      "mrr@10": 0.0066,
+      "hit@10": 0.0235,
+      "map@10": 0.0066
+    }
+  }
+}

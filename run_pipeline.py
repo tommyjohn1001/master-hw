@@ -75,7 +75,7 @@ def main():
         "use_cutoff": args.use_cutoff,
 
         # For training
-        "epochs": 8,
+        "epochs": 20,
         "train_batch_size": 4096,
         "eval_step": 1,
         "stopping_step": 3,
