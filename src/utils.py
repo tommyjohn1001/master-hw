@@ -4,12 +4,20 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
+import colorlog
 import pandas as pd
-from loguru import logger
+from colorama import init
 from recbole.config import Config
 from recbole.data import create_dataset
 from recbole.utils import init_seed
 from recbole.utils.logger import RemoveColorFilter
+
+log_colors_config = {
+    "DEBUG": "cyan",
+    "WARNING": "yellow",
+    "ERROR": "red",
+    "CRITICAL": "red",
+}
 
 
 class Paths:
@@ -62,18 +70,53 @@ class Paths:
         return (self.path_root_conf / f"tuning_{self.model}.hyper").as_posix()
 
 
-def get_logger(model: str, dataset: str):
-    paths = Paths(model, dataset)
+def init_logger(config, paths: Paths):
+    """
+    A logger that can show a message on standard output and write it into the
+    file named `filename` simultaneously.
+    All the message that you want to log MUST be str.
+
+    Args:
+        config (Config): An instance object of Config, used to record parameter information.
+
+    Example:
+        >>> logger = logging.getLogger(config)
+        >>> logger.debug(train_state)
+        >>> logger.info(train_result)
+    """
+    init(autoreset=True)
+
+    filefmt = "%(asctime)-15s %(levelname)s  %(message)s"
+    filedatefmt = "%a %d %b %Y %H:%M:%S"
+    fileformatter = logging.Formatter(filefmt, filedatefmt)
+
+    sfmt = "%(log_color)s%(asctime)-15s %(levelname)s  %(message)s"
+    sdatefmt = "%d %b %H:%M"
+    sformatter = colorlog.ColoredFormatter(sfmt, sdatefmt, log_colors=log_colors_config)
+    if config["state"] is None or config["state"].lower() == "info":
+        level = logging.INFO
+    elif config["state"].lower() == "debug":
+        level = logging.DEBUG
+    elif config["state"].lower() == "error":
+        level = logging.ERROR
+    elif config["state"].lower() == "warning":
+        level = logging.WARNING
+    elif config["state"].lower() == "critical":
+        level = logging.CRITICAL
+    else:
+        level = logging.INFO
 
     fh = logging.FileHandler(paths.get_path_log())
+    fh.setLevel(level)
+    fh.setFormatter(fileformatter)
     remove_color_filter = RemoveColorFilter()
     fh.addFilter(remove_color_filter)
 
-    logger.add(fh, colorize=False)
+    sh = logging.StreamHandler()
+    sh.setLevel(level)
+    sh.setFormatter(sformatter)
 
-    logging.basicConfig(handlers=[fh], encoding="utf-8")
-
-    return logger
+    logging.basicConfig(level=level, handlers=[sh, fh])
 
 
 def get_suitable_cutoff(ds_name: str) -> tuple:

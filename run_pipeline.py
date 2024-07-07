@@ -1,4 +1,5 @@
 import json
+from logging import getLogger
 
 import yaml
 from recbole.config import Config
@@ -17,6 +18,9 @@ def objective_function(config_dict=None, config_file_list=None):
     )
 
     init_seed(config["seed"], config["reproducibility"])
+    logger = getLogger()
+
+    logger.info("== START TUNNING ITERATION ==")
 
     # Define data related things
     if config["use_cutoff"] is True:
@@ -34,11 +38,13 @@ def objective_function(config_dict=None, config_file_list=None):
 
     # Start training
     best_valid_score, best_valid_result = trainer.fit(
-        train_data, valid_data, verbose=False
+        train_data, valid_data, verbose=True
     )
 
     # Start evaluating
     test_result = trainer.evaluate(test_data)
+
+    logger.info("== END TUNNING ITERATION ==")
 
     return {
         "model": model_name,
@@ -54,12 +60,6 @@ def main():
 
     args = utils.get_args()
     paths = utils.Paths(args.model, args.dataset)
-    logger = utils.get_logger(args.model, args.dataset)
-
-    # Basic checking
-    if args.use_cutoff is True and args.cutoff_time is None:
-        logger.error("'cutoff_time' must be specified")
-        exit(1)
 
     # Define config
 
@@ -75,7 +75,7 @@ def main():
         "use_cutoff": args.use_cutoff,
 
         # For training
-        "epochs": 20,
+        "epochs": 8,
         "train_batch_size": 4096,
         "eval_step": 1,
         "stopping_step": 3,
@@ -128,49 +128,19 @@ def main():
             # "candidate_num": 0,
         }
 
-    with open(paths.get_path_conf(), "w+") as f:
-        yaml.dump(config_dict, f, allow_unicode=True)
-
-    config = Config(args.model, args.dataset, config_dict=config_dict)
-
-    init_seed(config["seed"], config["reproducibility"])
-
-    # Define data related things
-    if args.use_cutoff is True:
-        dataset = TimeCutoffDataset(config)
-    else:
-        dataset = create_dataset(config)
-    train_data, valid_data, test_data = data_preparation(config, dataset)
-
-    # Define model
-    model_name = config["model"]
-    model = get_model(model_name)(config, train_data._dataset).to(config["device"])
-
-    # Define trainer
-    trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
-
-    # Start training
-    logger.info(config)
-    logger.info(dataset)
-    logger.info(model)
-
-    best_valid_score, best_valid_result = trainer.fit(
-        train_data,
-        valid_data,
-        verbose=True,
-        show_progress=config["show_progress"],
+    config = Config(
+        config_dict=config_dict,
+        config_file_list=[paths.get_path_param_conf()],
     )
 
-    logger.info("** Validation result")
-    logger.info(f"best_valid_score: {best_valid_score:.4f}")
-    for metric, val in best_valid_result.items():
-        logger.info(f"{metric:<15}: {val:.4f}")
+    with open(paths.get_path_conf(), "w+") as f:
+        yaml.dump(config.external_config_dict, f, allow_unicode=True)
 
-    test_result = trainer.evaluate(test_data)
+    init_seed(config["seed"], config["reproducibility"])
+    utils.init_logger(config, paths)
 
-    logger.info("** Test result")
-    for metric, val in test_result.items():
-        logger.info(f"{metric:<15}: {val:.4f}")
+    logger = getLogger()
+    logger.info(config)
 
     ## Start tuning
     tuning_algo = "bayes"
@@ -182,7 +152,7 @@ def main():
         algo=tuning_algo,
         early_stop=early_stop,
         max_evals=max_evals,
-        fixed_config_file_list=[paths.get_path_conf()],
+        fixed_config_file_list=[paths.get_path_conf(), paths.get_path_param_conf()],
         params_file=paths.get_path_tuning_conf(),
     )
     hp.run()
