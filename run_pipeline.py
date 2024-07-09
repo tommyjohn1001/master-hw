@@ -75,10 +75,10 @@ def main():
         "use_cutoff": args.use_cutoff,
 
         # For training
-        "epochs": 20,
+        "epochs": 100,
         "train_batch_size": 4096,
-        "eval_step": 1,
-        "stopping_step": 3,
+        "eval_step": 5,
+        "stopping_step": 5,
         "learning_rate": 1e-3,
         
         # For evaluation
@@ -144,8 +144,8 @@ def main():
 
     ## Start tuning
     tuning_algo = "bayes"
-    early_stop = 3
-    max_evals = 5
+    early_stop = 5
+    max_evals = 15
 
     hp = HyperTuning(
         objective_function=objective_function,
