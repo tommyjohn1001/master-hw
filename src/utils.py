@@ -21,11 +21,13 @@ log_colors_config = {
 
 
 class Paths:
-    def __init__(self, model: str, dataset: str) -> None:
+    def __init__(self, model: str, dataset: str, use_cutoff: bool) -> None:
         self.model, self.dataset = model, dataset
 
         tag = datetime.now().strftime("%b%d_%H%M%S")
-        self.path_root = Path("logs") / f"{tag}_{model}_{dataset}"
+        self.path_root = (
+            Path("logs") / f"{tag}_{model}_{dataset}_usecutoff_{use_cutoff}"
+        )
         self.path_root.mkdir(parents=True, exist_ok=True)
 
         self.path_root_data = Path("data")

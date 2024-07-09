@@ -59,7 +59,7 @@ def main():
     seed = 42
 
     args = utils.get_args()
-    paths = utils.Paths(args.model, args.dataset)
+    paths = utils.Paths(args.model, args.dataset, args.use_cutoff)
 
     # Define config
 
@@ -158,7 +158,8 @@ def main():
     hp.run()
 
     # print best parameters
-    logger.info("best params: ", hp.best_params)
+    logger.info("best params: ")
+    logger.info(hp.best_params)
 
     # print best result
     logger.info("best result: ")
