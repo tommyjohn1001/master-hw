@@ -1,0 +1,4 @@
+learning_rate choice [0.01,0.001,0.005,0.0005]
+embedding_size choice [64,128,256]
+pooling_type choice ["average","max"]
+reg_weight choice ['[0.00,0.00]','[0.001,0.00001]']

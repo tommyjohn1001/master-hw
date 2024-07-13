@@ -37,9 +37,22 @@ def objective_function(config_dict=None, config_file_list=None):
     trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
 
     # Start training
-    best_valid_score, best_valid_result = trainer.fit(
-        train_data, valid_data, verbose=True
-    )
+    try:
+        best_valid_score, best_valid_result = trainer.fit(
+            train_data, valid_data, verbose=True
+        )
+    except ValueError as e:
+        if str(e) == "Training loss is nan":
+            best_valid_score = best_valid_result = {
+                "ndcg@10": 0.0,
+                "precision@10": 0.0,
+                "recall@10": 0.0,
+                "mrr@10": 0.0,
+                "hit@10": 0.0,
+                "map@10": 0.0,
+            }
+        else:
+            raise e
 
     # Start evaluating
     test_result = trainer.evaluate(test_data)
