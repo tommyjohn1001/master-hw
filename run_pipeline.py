@@ -43,7 +43,8 @@ def objective_function(config_dict=None, config_file_list=None):
         )
     except ValueError as e:
         if str(e) == "Training loss is nan":
-            best_valid_score = best_valid_result = {
+            best_valid_score = 0.0
+            best_valid_result = {
                 "ndcg@10": 0.0,
                 "precision@10": 0.0,
                 "recall@10": 0.0,
