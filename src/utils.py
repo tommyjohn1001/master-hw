@@ -192,7 +192,7 @@ def get_args():
         "-l",
         dest="loss_type",
         type=str,
-        default=None,
+        default="BPR",
         choices=["BPR", "CE"],
     )
     parser.add_argument("-t", dest="cutoff_time", type=str, default=None)

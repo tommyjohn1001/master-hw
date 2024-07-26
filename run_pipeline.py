@@ -5,10 +5,10 @@ import yaml
 from recbole.config import Config
 from recbole.data import create_dataset, data_preparation
 from recbole.trainer import HyperTuning
-from recbole.utils import get_model, get_trainer, init_seed
+from recbole.utils import ModelType, get_model, get_trainer, init_seed
 
 from src import utils
-from src.real_temporal import TimeCutoffDataset
+from src.real_temporal import SimulatedOnlineDataset, SimulatedOnlineSequentialDataset
 
 
 def objective_function(config_dict=None, config_file_list=None):
@@ -24,7 +24,12 @@ def objective_function(config_dict=None, config_file_list=None):
 
     # Define data related things
     if config["use_cutoff"] is True:
-        dataset = TimeCutoffDataset(config)
+        match config["MODEL_TYPE"]:
+            case ModelType.GENERAL | ModelType.CONTEXT:
+                dataset = SimulatedOnlineDataset(config)
+            case ModelType.SEQUENTIAL:
+                dataset = SimulatedOnlineSequentialDataset(config)
+
     else:
         dataset = create_dataset(config)
     train_data, valid_data, test_data = data_preparation(config, dataset)
@@ -86,6 +91,7 @@ def main():
         "dataset": args.dataset,
         "load_col": {"inter": ["user_id", "item_id", "timestamp"]},
         "use_cutoff": args.use_cutoff,
+        'normalize_all': False,
 
         # For training
         "epochs": 100,

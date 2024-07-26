@@ -23,20 +23,12 @@ from recbole.utils import (
 from torch import Tensor
 
 
-class TimeCutoffDataset(SequentialDataset):
+class SimulatedOnlineDataset(Dataset):
     def __init__(self, config):
         self.timestamp_max, self.timestamp_min = 0.0, 0.0
         self.cutoff, self.cutoff_conv = 0.0, 0.0
 
         super().__init__(config)
-
-    def _normalize(self):
-        # Extract max-min of field self.time_field
-
-        self.timestamp_max = np.max(self.inter_feat[self.time_field])
-        self.timestamp_min = np.min(self.inter_feat[self.time_field])
-
-        return super()._normalize()
 
     def _fill_nan(self):
         """Missing value imputation.
@@ -179,6 +171,10 @@ class TimeCutoffDataset(SequentialDataset):
         ]
         next_ds = [self.copy(_) for _ in next_df]
         return next_ds
+
+
+class SimulatedOnlineSequentialDataset(SimulatedOnlineDataset, SequentialDataset):
+    pass
 
 
 def run_recbole_with_TimeCutoff(
