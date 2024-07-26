@@ -1,0 +1,4 @@
+# For model
+embedding_size: 128
+n_layers: 2
+reg_weight: 1e-5
