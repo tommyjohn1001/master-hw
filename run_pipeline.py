@@ -81,7 +81,6 @@ def main():
     config_dict = {
         # For model
         "model": args.model,
-        "loss_type": args.loss_type,
 
         # For data
         "dataset": args.dataset,
@@ -132,7 +131,10 @@ def main():
             "mode": "full",
         }
 
-    if args.loss_type == "CE":
+    if args.loss_type is not None:
+        config_dict["loss_type"] = args.loss_type
+
+    if args.loss_type is None or args.loss_type == "CE":
         config_dict["train_neg_sample_args"] = None
     else:
         config_dict["train_neg_sample_args"] = {
