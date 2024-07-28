@@ -1,6 +1,7 @@
 import json
 from logging import getLogger
 
+import numpy as np
 import yaml
 from recbole.config import Config
 from recbole.data import create_dataset, data_preparation
@@ -25,7 +26,7 @@ def objective_function(config_dict=None, config_file_list=None):
     # Define data related things
     if config["use_cutoff"] is True:
         match config["MODEL_TYPE"]:
-            case ModelType.GENERAL | ModelType.CONTEXT:
+            case ModelType.GENERAL | ModelType.TRADITIONAL:
                 dataset = SimulatedOnlineDataset(config)
             case ModelType.SEQUENTIAL:
                 dataset = SimulatedOnlineSequentialDataset(config)
@@ -60,8 +61,19 @@ def objective_function(config_dict=None, config_file_list=None):
         else:
             raise e
 
+    if best_valid_result is None:
+        best_valid_score = -1
+
     # Start evaluating
-    test_result = trainer.evaluate(test_data)
+    if model_name in ["ItemKNN"]:
+        load_best_model = False
+    else:
+        load_best_model = True
+
+    test_result = trainer.evaluate(test_data, load_best_model=load_best_model)
+    for k, v in test_result.items():
+        if isinstance(v, np.float32 | np.float64):
+            test_result[k] = v.item()
 
     logger.info("== END TUNNING ITERATION ==")
 
