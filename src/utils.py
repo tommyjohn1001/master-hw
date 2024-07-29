@@ -9,6 +9,7 @@ import pandas as pd
 from colorama import init
 from recbole.config import Config
 from recbole.data import create_dataset
+from recbole.data.dataset import Dataset
 from recbole.utils import init_seed
 from recbole.utils.logger import RemoveColorFilter
 
@@ -197,7 +198,41 @@ def get_args():
     )
     parser.add_argument("-t", dest="cutoff_time", type=str, default=None)
     parser.add_argument("--use_cutoff", action="store_true", dest="use_cutoff")
+    parser.add_argument(
+        "--filter-inactive", action="store_true", dest="filter_inactive"
+    )
     parser.add_argument("--reproducible", action="store_true", dest="reproducible")
 
     args = parser.parse_args()
     return args
+
+
+def remove_inactive(dataset: Dataset, cutoff: float | int | str):
+    """Remove inactive user at given cutoff timestamp
+
+    Args:
+        dataset (Dataset): recbole Dataset
+        cutoff (float | int): cutoff timestamp
+    """
+    assert dataset.inter_feat is not None
+
+    if not isinstance(cutoff, float):
+        cutoff = float(cutoff)
+
+    feat = dataset.inter_feat.copy()
+
+    # Determine min/max timestamp for each user
+    timestamp_byuser = feat.groupby("user_id")["timestamp"]
+    min_ts = (
+        timestamp_byuser.min().reset_index().rename(columns={"timestamp": "min_ts"})
+    )
+    max_ts = (
+        timestamp_byuser.max().reset_index().rename(columns={"timestamp": "max_ts"})
+    )
+    user = min_ts.merge(max_ts, on="user_id", how="inner")
+
+    # Determine inactive users using given cutoff
+    user_inactive = user[~((user["min_ts"] <= cutoff) & (cutoff <= user["max_ts"]))]
+
+    # Assign filtered interactions back to dataset
+    dataset.inter_feat = feat[~feat["user_id"].isin(user_inactive["user_id"])]

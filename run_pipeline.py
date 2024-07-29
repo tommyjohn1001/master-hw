@@ -1,4 +1,5 @@
 import json
+import warnings
 from logging import getLogger
 
 import numpy as np
@@ -10,6 +11,8 @@ from recbole.utils import ModelType, get_model, get_trainer, init_seed
 
 from src import utils
 from src.real_temporal import SimulatedOnlineDataset, SimulatedOnlineSequentialDataset
+
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
 def objective_function(config_dict=None, config_file_list=None):
@@ -33,7 +36,17 @@ def objective_function(config_dict=None, config_file_list=None):
 
     else:
         dataset = create_dataset(config)
+
+    if config["filter_inactive"] is True:
+        assert "cutoff_time" in config and config["cutoff_time"] is not None
+
+        utils.remove_inactive(dataset, cutoff=config["cutoff_time"])
+
     train_data, valid_data, test_data = data_preparation(config, dataset)
+
+    logger.info(f"train_dataset: {len(train_data.dataset)}")
+    logger.info(f"valid_dataset: {len(valid_data.dataset)}")
+    logger.info(f"test_dataset : {len(test_data.dataset)}")
 
     # Define model
     model_name = config["model"]
@@ -103,6 +116,8 @@ def main():
         "dataset": args.dataset,
         "load_col": {"inter": ["user_id", "item_id", "timestamp"]},
         "use_cutoff": args.use_cutoff,
+        "filter_inactive": args.filter_inactive,
+        "cutoff_time": args.cutoff_time,
         'normalize_all': False,
 
         # For training
