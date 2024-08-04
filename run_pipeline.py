@@ -119,6 +119,7 @@ def main():
         "filter_inactive": args.filter_inactive,
         "cutoff_time": args.cutoff_time,
         'normalize_all': False,
+        'user_inter_num_interval': "[10,inf)",
 
         # For training
         "epochs": 100,
