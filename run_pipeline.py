@@ -137,7 +137,7 @@ def main():
         # Environment
         'gpu_id': 0,
         "seed": seed,
-        "reproducibility": args.reproducible,
+        "reproducibility": True,
         'device': 'cuda',
         'use_gpu': True,
         'data_path': paths.get_path_data_raw(),

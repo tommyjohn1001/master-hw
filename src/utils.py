@@ -201,7 +201,6 @@ def get_args():
     parser.add_argument(
         "--filter-inactive", action="store_true", dest="filter_inactive"
     )
-    parser.add_argument("--reproducible", action="store_true", dest="reproducible")
 
     args = parser.parse_args()
     return args
