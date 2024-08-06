@@ -194,14 +194,11 @@ def get_args():
         "-l",
         dest="loss_type",
         type=str,
-        default="BPR",
+        default="CE",
         choices=["BPR", "CE"],
     )
     parser.add_argument("-t", dest="cutoff_time", type=str, default=None)
     parser.add_argument("--use_cutoff", action="store_true", dest="use_cutoff")
-    parser.add_argument(
-        "--separate-activeness", action="store_true", dest="separate_activeness"
-    )
 
     args = parser.parse_args()
     return args
