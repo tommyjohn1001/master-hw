@@ -5,10 +5,11 @@ from datetime import datetime
 from pathlib import Path
 
 import colorlog
+import numpy as np
 import pandas as pd
 from colorama import init
 from recbole.config import Config
-from recbole.data import create_dataset
+from recbole.data import create_dataset, data_preparation
 from recbole.data.dataset import Dataset
 from recbole.utils import init_seed
 from recbole.utils.logger import RemoveColorFilter
@@ -199,39 +200,77 @@ def get_args():
     parser.add_argument("-t", dest="cutoff_time", type=str, default=None)
     parser.add_argument("--use_cutoff", action="store_true", dest="use_cutoff")
     parser.add_argument(
-        "--filter-inactive", action="store_true", dest="filter_inactive"
+        "--separate-activeness", action="store_true", dest="separate_activeness"
     )
 
     args = parser.parse_args()
     return args
 
 
-def remove_inactive(dataset: Dataset, cutoff: float | int | str):
-    """Remove inactive user at given cutoff timestamp
+def get_loader(
+    dataset: Dataset,
+    config: Config,
+    separate_activeness: bool,
+    cutoff: float | int | str | None,
+) -> tuple:
+    """Get train, validation and testing loader. Return 2 separated test loaders (active and inactive users) if separation required
 
     Args:
         dataset (Dataset): recbole Dataset
-        cutoff (float | int): cutoff timestamp
+        config (Config): config
+        separate_activeness (bool): if separate the test loader into active and inactive test loader
+        cutoff (float | int | str | None): cutoff timestamp
+
+    Returns:
+        tuple: train, val, test dataloader, if separate_activeness is True then train, valid, test_active and test_inactive data loader
     """
     assert dataset.inter_feat is not None
 
-    if not isinstance(cutoff, float):
-        cutoff = float(cutoff)
+    if separate_activeness is True:
+        assert cutoff is not None
 
-    feat = dataset.inter_feat.copy()
+        if not isinstance(cutoff, float):
+            cutoff = float(cutoff)
 
-    # Determine min/max timestamp for each user
-    timestamp_byuser = feat.groupby("user_id")["timestamp"]
-    min_ts = (
-        timestamp_byuser.min().reset_index().rename(columns={"timestamp": "min_ts"})
-    )
-    max_ts = (
-        timestamp_byuser.max().reset_index().rename(columns={"timestamp": "max_ts"})
-    )
-    user = min_ts.merge(max_ts, on="user_id", how="inner")
+        feat = dataset.inter_feat
 
-    # Determine inactive users using given cutoff
-    user_inactive = user[~((user["min_ts"] <= cutoff) & (cutoff <= user["max_ts"]))]
+        # Determine min/max timestamp for each user
+        timestamp_byuser = feat.groupby("user_id")["timestamp"]
+        min_ts = (
+            timestamp_byuser.min().reset_index().rename(columns={"timestamp": "min_ts"})
+        )
+        max_ts = (
+            timestamp_byuser.max().reset_index().rename(columns={"timestamp": "max_ts"})
+        )
+        user = min_ts.merge(max_ts, on="user_id", how="inner")
 
-    # Assign filtered interactions back to dataset
-    dataset.inter_feat = feat[~feat["user_id"].isin(user_inactive["user_id"])]
+        # Create new dataset from features of active/inactive users
+        condition_active_user = (user["min_ts"] <= cutoff) & (cutoff <= user["max_ts"])
+        user_inactive = user[~condition_active_user]["user_id"]
+        user_active = user[condition_active_user]["user_id"]
+
+        feat_active = feat[feat["user_id"].isin(user_active)].copy()
+        feat_inactive = feat[feat["user_id"].isin(user_inactive)].copy()
+
+        dataset_active = dataset.copy(feat_active)
+        dataset_inactive = dataset.copy(feat_inactive)
+
+        assert len(dataset) - len(dataset_active) - len(dataset_inactive) == 0
+
+        # Create active/inactive test dataloader
+        _, _, test_data_active = data_preparation(config, dataset_active)
+        _, _, test_data_inactive = data_preparation(config, dataset_inactive)
+
+        train_data, valid_data, _ = data_preparation(config, dataset)
+
+        return train_data, valid_data, test_data_active, test_data_inactive
+    else:
+        train_data, valid_data, test_data = data_preparation(config, dataset)
+
+        return train_data, valid_data, test_data
+
+
+def refine_result(result: dict):
+    for k, v in result.items():
+        if isinstance(v, np.float32 | np.float64):
+            result[k] = v.item()

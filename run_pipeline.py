@@ -2,10 +2,9 @@ import json
 import warnings
 from logging import getLogger
 
-import numpy as np
 import yaml
 from recbole.config import Config
-from recbole.data import create_dataset, data_preparation
+from recbole.data import create_dataset
 from recbole.trainer import HyperTuning
 from recbole.utils import ModelType, get_model, get_trainer, init_seed
 
@@ -37,16 +36,29 @@ def objective_function(config_dict=None, config_file_list=None):
     else:
         dataset = create_dataset(config)
 
-    if config["filter_inactive"] is True:
-        assert "cutoff_time" in config and config["cutoff_time"] is not None
+    if config["separate_activeness"] is True:
+        train_data, valid_data, test_data_active, test_data_inactive = utils.get_loader(
+            dataset,
+            config,
+            True,
+            config["cutoff_time"],
+        )
+    else:
+        train_data, valid_data, test_data = utils.get_loader(
+            dataset,
+            config,
+            False,
+            None,
+        )
 
-        utils.remove_inactive(dataset, cutoff=config["cutoff_time"])
+    logger.info(f"train_dataset         : {len(train_data.dataset)}")
+    logger.info(f"valid_dataset         : {len(valid_data.dataset)}")
 
-    train_data, valid_data, test_data = data_preparation(config, dataset)
-
-    logger.info(f"train_dataset: {len(train_data.dataset)}")
-    logger.info(f"valid_dataset: {len(valid_data.dataset)}")
-    logger.info(f"test_dataset : {len(test_data.dataset)}")
+    if config["separate_activeness"] is True:
+        logger.info(f"test_dataset_active   : {len(test_data_active.dataset)}")
+        logger.info(f"test_dataset_inactive : {len(test_data_inactive.dataset)}")
+    else:
+        logger.info(f"test_dataset          : {len(test_data.dataset)}")
 
     # Define model
     model_name = config["model"]
@@ -84,19 +96,37 @@ def objective_function(config_dict=None, config_file_list=None):
         load_best_model = True
 
     test_result = trainer.evaluate(test_data, load_best_model=load_best_model)
-    for k, v in test_result.items():
-        if isinstance(v, np.float32 | np.float64):
-            test_result[k] = v.item()
 
-    logger.info("== END TUNNING ITERATION ==")
-
-    return {
+    results = {
         "model": model_name,
         "best_valid_score": best_valid_score,
         "valid_score_bigger": config["valid_metric_bigger"],
         "best_valid_result": best_valid_result,
-        "test_result": test_result,
     }
+
+    # Start testing
+    if config["separate_activeness"] is True:
+        pairs = [
+            ("inactive", test_data_inactive),
+            ("active", test_data_active),
+        ]
+
+        for tag, test_data in pairs:
+            test_result = trainer.evaluate(test_data)
+
+            utils.refine_result(test_result)
+
+            results[f"test_result_{tag}"] = test_result
+    else:
+        test_result = trainer.evaluate(test_data)
+
+        utils.refine_result(test_result)
+
+        results["test_result"] = test_result
+
+    logger.info("== END TUNNING ITERATION ==")
+
+    return results
 
 
 def main():
@@ -116,7 +146,7 @@ def main():
         "dataset": args.dataset,
         "load_col": {"inter": ["user_id", "item_id", "timestamp"]},
         "use_cutoff": args.use_cutoff,
-        "filter_inactive": args.filter_inactive,
+        "separate_activeness": args.separate_activeness,
         "cutoff_time": args.cutoff_time,
         'normalize_all': False,
         'user_inter_num_interval': "[10,inf)",
