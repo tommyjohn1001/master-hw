@@ -2,6 +2,7 @@ import json
 import warnings
 from logging import getLogger
 
+import numpy as np
 import yaml
 from recbole.config import Config
 from recbole.data import create_dataset
@@ -51,35 +52,51 @@ def objective_function(config_dict=None, config_file_list=None):
     # Define trainer
     trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
 
-    # Start training
-    try:
-        best_valid_score, best_valid_result = trainer.fit(
-            train_data, valid_data, verbose=True
-        )
-    except ValueError as e:
-        if str(e) == "Training loss is nan":
-            best_valid_score = 0.0
-            best_valid_result = {
-                "ndcg@10": 0.0,
-                "precision@10": 0.0,
-                "recall@10": 0.0,
-                "mrr@10": 0.0,
-                "hit@10": 0.0,
-                "map@10": 0.0,
-            }
-        else:
-            raise e
-
-    if best_valid_result is None:
-        best_valid_score = -1
-
-    # Start evaluating
     if model_name in ["ItemKNN"]:
-        load_best_model = False
-    else:
-        load_best_model = True
+        valid_metric_name = config["valid_metric"].lower()
 
-    test_result = trainer.evaluate(test_data, load_best_model=load_best_model)
+        # Start training
+        trainer.fit(train_data, verbose=True)
+
+        # Start evaluating
+        best_valid_result = dict(trainer.evaluate(valid_data, load_best_model=False))
+        best_valid_score = best_valid_result[valid_metric_name]
+
+        if isinstance(best_valid_score, (np.float32, np.float64)):
+            best_valid_score = best_valid_score.item()
+
+        logger.info(f"best_valid_result: {best_valid_result}")
+
+        # Start testing
+        test_result = dict(trainer.evaluate(test_data, load_best_model=False))
+
+        logger.info(f"test_result: {test_result}")
+    else:
+        # Start training
+        try:
+            best_valid_score, best_valid_result = trainer.fit(
+                train_data, valid_data, verbose=True
+            )
+            best_valid_result = dict(best_valid_result)
+        except ValueError as e:
+            if str(e) == "Training loss is nan":
+                best_valid_score = 0.0
+                best_valid_result = {
+                    "ndcg@10": 0.0,
+                    "precision@10": 0.0,
+                    "recall@10": 0.0,
+                    "mrr@10": 0.0,
+                    "hit@10": 0.0,
+                    "map@10": 0.0,
+                }
+            else:
+                raise e
+
+        # Start testing
+        test_result = trainer.evaluate(test_data, load_best_model=True)
+        test_result = dict(test_result)
+
+    utils.refine_result(best_valid_result)
     utils.refine_result(test_result)
 
     logger.info("== END TUNNING ITERATION ==")
@@ -185,7 +202,7 @@ def main():
     logger = getLogger()
     logger.info(config)
 
-    ## Start tuning
+    # Start tuning
     tuning_algo = "bayes"
     early_stop = 5
     max_evals = 15
