@@ -132,7 +132,7 @@ def main():
         'user_inter_num_interval': "[10,inf)",
 
         # For training
-        "epochs": 100,
+        "epochs": 60,
         "train_batch_size": 4096,
         "eval_step": 5,
         "stopping_step": 5,

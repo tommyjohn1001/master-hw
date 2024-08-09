@@ -7,8 +7,7 @@ from pathlib import Path
 from loguru import logger
 from tqdm.contrib import itertools
 
-TEMPLATE = """
-#!/bin/bash
+TEMPLATE = """#!/bin/bash
 
 #SBATCH --job-name=RS_SimOnline
 #SBATCH --account=Project_2010450
@@ -21,24 +20,22 @@ TEMPLATE = """
 #SBATCH --gres=gpu:v100:1
 #SBATCH --chdir=/scratch/project_2010450/thesis/
 
-#!/bin/bash
+cd /scratch/project_2010450/thesis/
 
-srun cd ../
+unset PYTHONPATH
+source thesis_venv/bin/activate
 
-srun unset PYTHONPATH
-srun source thesis_venv/bin/activate
+date
 
-srun date
-
-srun echo
-srun echo
+echo
+echo
 
 <<<COMMAND>>>
 
-srun echo
-srun echo
+echo
+echo
 
-srun date
+date
 
 """
 
@@ -47,14 +44,15 @@ PATH_DIR_SCRIPT = Path("slurm_scripts")
 # fmt: off
 MODELS = [
     # Sequential
-    {'name': "NPE", 'options': []},
-    {'name': "HGN", 'options': []},
-    {'name': "BERT4Rec", 'options': []},
-    {'name': "GRU4Rec", 'options': []},
+    # {'name': "NPE", 'options': []},
+    # {'name': "HGN", 'options': []},
+    # {'name': "BERT4Rec", 'options': []},
+    # {'name': "GRU4Rec", 'options': []},
 
     # General
     {'name': "ItemKNN", 'options': []},
     {'name': "BPR", 'options': ["-l BPR"]},
+    {'name': "ENMF", 'options': []},
 ]
 # fmt: on
 DATASETS = [
@@ -107,12 +105,11 @@ def main():
         subprocess.run(
             [
                 "sbatch",
-                f"../{str(path)}",
+                f"{str(path)}",
             ]
         )
 
         logger.info(f"Triggered: {str(path)}")
-        break
 
 
 if __name__ == "__main__":

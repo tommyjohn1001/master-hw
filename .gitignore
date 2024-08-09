@@ -199,3 +199,4 @@ logs/
 dataset/
 data/
 thesis_venv/
+slurm_scripts/
