@@ -165,14 +165,14 @@ def main():
             "order": "TO",
             "split": {"CO": args.cutoff_time},
             "group_by": "user_id",
-            "mode": "full",
+            "mode": "pop100",
         }
     else:
         config_dict["eval_args"] = {
             "order": "TO",
             "split": {"LS": "valid_and_test"},
             "group_by": None,
-            "mode": "full",
+            "mode": "pop100",
         }
 
     if args.loss_type is not None:
