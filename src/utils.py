@@ -209,19 +209,24 @@ def get_loader(
     config: Config,
     separate_activeness: bool,
     cutoff: float | int | str | None,
-) -> tuple:
-    """Get train, validation and testing loader. Return 2 separated test loaders (active and inactive users) if separation required
+) -> dict:
+    """Get train, validation and testing loader. Create validation loader and test loader separately for active/inactive users.
 
     Args:
         dataset (Dataset): recbole Dataset
         config (Config): config
-        separate_activeness (bool): if separate the test loader into active and inactive test loader
+        separate_activeness (bool): if separate the test and val loader into active and inactive test loader
         cutoff (float | int | str | None): cutoff timestamp
 
     Returns:
-        tuple: train, val, test dataloader, if separate_activeness is True then train, valid, test_active and test_inactive data loader
+        dict: data loaders
     """
     assert dataset.inter_feat is not None
+
+    valid_data_active = None
+    test_data_active = None
+    valid_data_inactive = None
+    test_data_inactive = None
 
     if separate_activeness is True:
         assert cutoff is not None
@@ -255,19 +260,37 @@ def get_loader(
         assert len(dataset) - len(dataset_active) - len(dataset_inactive) == 0
 
         # Create active/inactive test dataloader
-        _, _, test_data_active = data_preparation(config, dataset_active)
-        _, _, test_data_inactive = data_preparation(config, dataset_inactive)
+        _, valid_data_active, test_data_active = data_preparation(
+            config, dataset_active
+        )
+        _, valid_data_inactive, test_data_inactive = data_preparation(
+            config, dataset_inactive
+        )
 
-        train_data, valid_data, _ = data_preparation(config, dataset)
+    train_data, valid_data, test_data = data_preparation(config, dataset)
 
-        return train_data, valid_data, test_data_active, test_data_inactive
-    else:
-        train_data, valid_data, test_data = data_preparation(config, dataset)
+    out = {
+        "train_data": train_data,
+        "valid_data": valid_data,
+        "test_data": test_data,
+        "valid_data_inactive": valid_data_inactive,
+        "valid_data_active": valid_data_active,
+        "test_data_inactive": test_data_inactive,
+        "test_data_active": test_data_active,
+    }
 
-        return train_data, valid_data, test_data
+    return out
 
 
-def refine_result(result: dict):
-    for k, v in result.items():
-        if isinstance(v, np.float32 | np.float64):
-            result[k] = v.item()
+def refine_result(result):
+    if isinstance(result, dict):
+        for k, v in result.items():
+            if isinstance(v, np.float32 | np.float64):
+                result[k] = v.item()
+
+        out = result
+
+    elif isinstance(result, np.float32 | np.float64):
+        out = result.item()
+
+    return out

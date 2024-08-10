@@ -2,7 +2,6 @@ import json
 import warnings
 from logging import getLogger
 
-import numpy as np
 import yaml
 from recbole.config import Config
 from recbole.data import create_dataset
@@ -37,13 +36,27 @@ def objective_function(config_dict=None, config_file_list=None):
     else:
         dataset = create_dataset(config)
 
-    train_data, valid_data, test_data = utils.get_loader(
-        dataset, config, False, config["cutoff_time"]
+    separate_activeness = config["use_cutoff"] is False
+    dataloaders = utils.get_loader(
+        dataset, config, separate_activeness, config["cutoff_time"]
     )
 
-    logger.info(f"train_dataset: {len(train_data.dataset)}")
-    logger.info(f"valid_dataset: {len(valid_data.dataset)}")
-    logger.info(f"test_dataset : {len(test_data.dataset)}")
+    train_data = dataloaders["train_data"]
+    valid_data = dataloaders["valid_data"]
+    test_data = dataloaders["test_data"]
+    valid_data_inactive = dataloaders["valid_data_inactive"]
+    valid_data_active = dataloaders["valid_data_active"]
+    test_data_inactive = dataloaders["test_data_inactive"]
+    test_data_active = dataloaders["test_data_active"]
+
+    logger.info(f"train_dataset         : {len(train_data._dataset)}")
+    logger.info(f"valid_dataset         : {len(valid_data._dataset)}")
+    logger.info(f"test_dataset          : {len(test_data._dataset)}")
+    if valid_data_inactive is not None:
+        logger.info(f"test_dataset_inactive : {len(test_data_inactive._dataset)}")
+        logger.info(f"test_dataset_active   : {len(test_data_active._dataset)}")
+        logger.info(f"valid_dataset_inactive: {len(valid_data_inactive._dataset)}")
+        logger.info(f"valid_dataset_active  : {len(valid_data_active._dataset)}")
 
     # Define model
     model_name = config["model"]
@@ -52,67 +65,71 @@ def objective_function(config_dict=None, config_file_list=None):
     # Define trainer
     trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
 
-    if model_name in ["ItemKNN"]:
-        valid_metric_name = config["valid_metric"].lower()
+    # Start training
+    try:
+        trainer.fit(train_data, valid_data, verbose=True)
+    except ValueError as e:
+        if str(e) == "Training loss is nan":
+            pass
+        else:
+            raise e
 
-        # Start training
-        trainer.fit(train_data, verbose=True)
+    # Start evaluating
+    load_best_model = model_name not in ["ItemKNN"]
+    valid_metric_name = config["valid_metric"].lower()
 
-        # Start evaluating
-        best_valid_result = dict(trainer.evaluate(valid_data, load_best_model=False))
-        best_valid_score = best_valid_result[valid_metric_name]
+    valid_result = dict(trainer.evaluate(valid_data, load_best_model=load_best_model))
 
-        if isinstance(best_valid_score, (np.float32, np.float64)):
-            best_valid_score = best_valid_score.item()
+    logger.info(f"valid_result: {valid_result}")
 
-        logger.info(f"best_valid_result: {best_valid_result}")
+    # Start testing
+    test_result = dict(trainer.evaluate(test_data, load_best_model=load_best_model))
 
-        # Start testing
-        test_result = dict(trainer.evaluate(test_data, load_best_model=False))
+    logger.info(f"test_result: {test_result}")
 
-        logger.info(f"test_result: {test_result}")
-    else:
-        # Start training
-        try:
-            best_valid_score, best_valid_result = trainer.fit(
-                train_data, valid_data, verbose=True
-            )
-            best_valid_result = dict(best_valid_result)
-        except ValueError as e:
-            if str(e) == "Training loss is nan":
-                best_valid_score = 0.0
-                best_valid_result = {
-                    "ndcg@10": 0.0,
-                    "precision@10": 0.0,
-                    "recall@10": 0.0,
-                    "mrr@10": 0.0,
-                    "hit@10": 0.0,
-                    "map@10": 0.0,
-                }
-            else:
-                raise e
+    out = {
+        "model": model_name,
+        "best_valid_score": utils.refine_result(valid_result[valid_metric_name]),
+        "valid_score_bigger": config["valid_metric_bigger"],
+        "best_valid_result": utils.refine_result(valid_result),
+        "test_result": utils.refine_result(test_result),
+    }
 
-        # Start testing
-        test_result = trainer.evaluate(test_data, load_best_model=True)
-        test_result = dict(test_result)
+    # Validate and test separately active and inactive users
+    if config["use_cutoff"] is False:
+        assert test_data_inactive is not None
+        assert test_data_active is not None
+        assert valid_data_inactive is not None
+        assert valid_data_active is not None
 
-    utils.refine_result(best_valid_result)
-    utils.refine_result(test_result)
+        valid_result_inactive = dict(
+            trainer.evaluate(valid_data_inactive, load_best_model=load_best_model)
+        )
+        valid_result_active = dict(
+            trainer.evaluate(valid_data_active, load_best_model=load_best_model)
+        )
+
+        test_result_inactive = dict(
+            trainer.evaluate(test_data_inactive, load_best_model=load_best_model)
+        )
+        test_result_active = dict(
+            trainer.evaluate(test_data_active, load_best_model=load_best_model)
+        )
+
+        out = {
+            **out,
+            "valid_result_inactive": utils.refine_result(valid_result_inactive),
+            "valid_result_active": utils.refine_result(valid_result_active),
+            "test_result_inactive": utils.refine_result(test_result_inactive),
+            "test_result_active": utils.refine_result(test_result_active),
+        }
 
     logger.info("== END TUNNING ITERATION ==")
 
-    return {
-        "model": model_name,
-        "best_valid_score": best_valid_score,
-        "valid_score_bigger": config["valid_metric_bigger"],
-        "best_valid_result": best_valid_result,
-        "test_result": test_result,
-    }
+    return out
 
 
 def main():
-    seed = 42
-
     args = utils.get_args()
     paths = utils.Paths(args.model, args.dataset, args.use_cutoff)
 
@@ -146,7 +163,7 @@ def main():
 
         # Environment
         'gpu_id': 0,
-        "seed": seed,
+        "seed": 42,
         "reproducibility": True,
         'device': 'cuda',
         'use_gpu': True,

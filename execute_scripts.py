@@ -82,7 +82,7 @@ def main():
         arg_model = model["name"]
         arg_dataset = dataset["name"]
         arg_use_cutoff = "--use_cutoff" if use_cutoff is True else ""
-        arg_cutoff_date = f"-t {cutoff_date}" if use_cutoff else ""
+        arg_cutoff_date = f"-t {cutoff_date}"
         arg_options = " ".join(model["options"])
 
         cmd = f"python run_pipeline.py -m {arg_model} -d {arg_dataset} {arg_use_cutoff} {arg_cutoff_date} {arg_options}"
