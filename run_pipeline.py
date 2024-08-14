@@ -26,17 +26,18 @@ def objective_function(config_dict=None, config_file_list=None):
     logger.info("== START TUNNING ITERATION ==")
 
     # Define data related things
-    if config["use_cutoff"] is True:
+    if config["scheme"] == "so":
         match config["MODEL_TYPE"]:
             case ModelType.GENERAL | ModelType.TRADITIONAL:
                 dataset = SimulatedOnlineDataset(config)
             case ModelType.SEQUENTIAL:
                 dataset = SimulatedOnlineSequentialDataset(config)
-
-    else:
+    elif config["scheme"] == "loo":
         dataset = create_dataset(config)
+    else:
+        raise NotImplementedError()
 
-    separate_activeness = config["use_cutoff"] is False
+    separate_activeness = config["scheme"] == "loo"
     dataloaders = utils.get_loader(
         dataset, config, separate_activeness, config["cutoff_time"]
     )
@@ -67,7 +68,12 @@ def objective_function(config_dict=None, config_file_list=None):
 
     # Start training
     try:
-        trainer.fit(train_data, valid_data, verbose=True)
+        if model_name not in ["S3Rec"]:
+            trainer.fit(train_data, valid_data, verbose=True)
+        else:
+            # First, pre-train
+            pass
+            # TODO: HoangLe [Aug-14]: Continue this
     except ValueError as e:
         if str(e) == "Training loss is nan":
             pass
@@ -96,7 +102,7 @@ def objective_function(config_dict=None, config_file_list=None):
     }
 
     # Validate and test separately active and inactive users
-    if config["use_cutoff"] is False:
+    if separate_activeness is True:
         assert test_data_inactive is not None
         assert test_data_active is not None
         assert valid_data_inactive is not None
@@ -131,7 +137,10 @@ def objective_function(config_dict=None, config_file_list=None):
 
 def main():
     args = utils.get_args()
-    paths = utils.Paths(args.model, args.dataset, args.use_cutoff)
+
+    assert args.scheme in ["so", "loo"]
+
+    paths = utils.Paths(args.model, args.dataset, args.scheme)
 
     # Define config
 
@@ -143,7 +152,7 @@ def main():
         # For data
         "dataset": args.dataset,
         "load_col": {"inter": ["user_id", "item_id", "timestamp"]},
-        "use_cutoff": args.use_cutoff,
+        "scheme": args.scheme,
         "cutoff_time": args.cutoff_time,
         'normalize_all': False,
         'user_inter_num_interval': "[10,inf)",
@@ -169,6 +178,7 @@ def main():
         'use_gpu': True,
         'data_path': paths.get_path_data_raw(),
         "checkpoint_dir": paths.get_path_dir_ckpt(),
+        "pretrain_path": paths.get_path_pretrain_ckpt(),
         "show_progress": True,
         'save_dataset': True,
         'dataset_save_path': paths.get_path_data_processed(),
@@ -177,20 +187,22 @@ def main():
     }
     # fmt: on
 
-    if args.use_cutoff is True:
+    if args.scheme == "so":
         config_dict["eval_args"] = {
             "order": "TO",
             "split": {"CO": args.cutoff_time},
             "group_by": "user_id",
             "mode": "pop100",
         }
-    else:
+    elif args.scheme == "loo":
         config_dict["eval_args"] = {
             "order": "TO",
             "split": {"LS": "valid_and_test"},
             "group_by": None,
             "mode": "pop100",
         }
+    else:
+        raise NotImplementedError()
 
     if args.loss_type is not None:
         config_dict["loss_type"] = args.loss_type

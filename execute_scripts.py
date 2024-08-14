@@ -59,10 +59,7 @@ DATASETS = [
     {"name": "ml-1m", "cutoff_date": "991854688"},
     {"name": "amazon-digital-music", "cutoff_date": "1403568000"},
 ]
-USE_CUTOFF = [
-    True,
-    False,
-]
+SCHEMES = ["so", "loo"]
 
 
 def main():
@@ -75,23 +72,23 @@ def main():
     PATH_DIR_SCRIPT.mkdir(exist_ok=True, parents=True)
     tag = datetime.now().strftime(r"%m%d_%H%M%S")
 
-    for model, dataset, use_cutoff in itertools.product(MODELS, DATASETS, USE_CUTOFF):
+    for model, dataset, scheme in itertools.product(MODELS, DATASETS, SCHEMES):
         # Tailor command
         cutoff_date = dataset["cutoff_date"]
 
         arg_model = model["name"]
         arg_dataset = dataset["name"]
-        arg_use_cutoff = "--use_cutoff" if use_cutoff is True else ""
+        arg_scheme = f"-s {scheme}"
         arg_cutoff_date = f"-t {cutoff_date}"
         arg_options = " ".join(model["options"])
 
-        cmd = f"python run_pipeline.py -m {arg_model} -d {arg_dataset} {arg_use_cutoff} {arg_cutoff_date} {arg_options}"
+        cmd = f"python run_pipeline.py -m {arg_model} -d {arg_dataset} {arg_scheme} {arg_cutoff_date} {arg_options}"
 
         # Create script
         script = TEMPLATE.replace("<<<COMMAND>>>", cmd)
 
         # Store script
-        script_name = f"{tag}-{arg_model}-{arg_dataset}-use_cutoff_{use_cutoff}.sbatch"
+        script_name = f"{tag}-{arg_model}-{arg_dataset}-{arg_scheme}.sbatch"
         path = PATH_DIR_SCRIPT / script_name
 
         if path.exists():

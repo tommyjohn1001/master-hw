@@ -23,13 +23,11 @@ log_colors_config = {
 
 
 class Paths:
-    def __init__(self, model: str, dataset: str, use_cutoff: bool) -> None:
+    def __init__(self, model: str, dataset: str, scheme: str) -> None:
         self.model, self.dataset = model, dataset
 
         tag = datetime.now().strftime("%b%d_%H%M%S")
-        self.path_root = (
-            Path("logs") / f"{tag}_{model}_{dataset}_usecutoff_{use_cutoff}"
-        )
+        self.path_root = Path("logs") / f"{tag}_{model}_{dataset}_{scheme}"
         self.path_root.mkdir(parents=True, exist_ok=True)
 
         self.path_root_data = Path("data")
@@ -45,6 +43,9 @@ class Paths:
 
     def get_path_dir_ckpt(self):
         return (self.path_root / "ckpts").as_posix()
+
+    def get_path_pretrain_ckpt(self):
+        return (self.path_root / "ckpts" / "pretrain.pth").as_posix()
 
     def get_path_tuning_log(self):
         return (self.path_root / "tune_result.json").as_posix()
@@ -198,7 +199,7 @@ def get_args():
         choices=["BPR", "CE"],
     )
     parser.add_argument("-t", dest="cutoff_time", type=str, default=None)
-    parser.add_argument("--use_cutoff", action="store_true", dest="use_cutoff")
+    parser.add_argument("-s", type=str, default=None, dest="scheme")
 
     args = parser.parse_args()
     return args

@@ -11,12 +11,12 @@
 
 # 1. General RS: ItemKNN BPR ENMF
 
-python run_pipeline.py -m NeuMF -d ml-1m -t 991854688 --use_cutoff
+python run_pipeline.py -m NeuMF -d ml-1m -t 991854688 -s so
 # python run_pipeline.py -m BPR -d amazon-digital-music
 
 # 2. Sequential: NPE HGN BERT4Rec GRU4Rec
 
-# python run_pipeline.py -m HGN -l CE -d amazon-digital-music -t 1403568000 --use_cutoff
+# python run_pipeline.py -m HGN -l CE -d amazon-digital-music -t 1403568000 -s so
 # python run_pipeline.py -m HGN -l CE -d amazon-digital-music
 
 # 3. Sequential with LOO with removed inactive users
