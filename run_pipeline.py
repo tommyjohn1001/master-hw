@@ -1,6 +1,7 @@
 import json
 import warnings
 from logging import getLogger
+from pathlib import Path
 
 import yaml
 from recbole.config import Config
@@ -63,22 +64,25 @@ def objective_function(config_dict=None, config_file_list=None):
     model_name = config["model"]
     model = get_model(model_name)(config, train_data._dataset).to(config["device"])
 
-    # Define trainer
-    trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
-
-    # Start training
+    # Define trainer and start training
     try:
         if model_name in ["S3Rec"]:
-            # First, pre-train
-            # NOTE: HoangLe [Aug-14]: How to check if pre-train is done
+            # First, pre-train if weight not available
+            if not Path(config["pretrain_path"]).exists():
+                logger.info("Pre-train weight not found. Start pre-train...")
 
-            config["train_stage"] = "pretrain"
-            config["save_step"] = 1
+                config["train_stage"] = "pretrain"
 
-            trainer.fit(train_data, valid_data, verbose=True, show_progress=True)
+                trainer = get_trainer(config["MODEL_TYPE"], config["model"])(
+                    config, model
+                )
+                trainer.fit(train_data, verbose=True, show_progress=True)
+            else:
+                config["train_stage"] = "finetune"
+                config["pre_model_path"] = config["pretrain_path"]
+                config["train_neg_sample_args"] = None
 
-            exit()
-
+        trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
         trainer.fit(train_data, valid_data, verbose=True, show_progress=True)
     except ValueError as e:
         if str(e) == "Training loss is nan":
@@ -169,7 +173,8 @@ def main():
         "eval_step": 5,
         "stopping_step": 5,
         "learning_rate": 1e-3,
-        "pretrain_epochs": 1,
+        "pretrain_epochs": 50,
+        "save_step": 50,
         
         # For evaluation
         "eval_batch_size": 4096,
@@ -232,7 +237,6 @@ def main():
     with open(paths.get_path_conf(), "w+") as f:
         yaml.dump(config.external_config_dict, f, allow_unicode=True)
 
-    init_seed(config["seed"], config["reproducibility"])
     utils.init_logger(config, paths)
 
     logger = getLogger()

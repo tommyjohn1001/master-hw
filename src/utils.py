@@ -44,8 +44,9 @@ class Paths:
     def get_path_dir_ckpt(self):
         return (self.path_root / "ckpts").as_posix()
 
-    def get_path_pretrain_ckpt(self):
-        return (self.path_root / "ckpts" / "pretrain.pth").as_posix()
+    def get_path_pretrain_ckpt(self, save_step: int = 50):
+        file_name = f"{self.model}-{self.dataset}-{save_step}.pth"
+        return (self.path_root / "ckpts" / file_name).as_posix()
 
     def get_path_tuning_log(self):
         return (self.path_root / "tune_result.json").as_posix()

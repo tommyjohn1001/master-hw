@@ -12,8 +12,3 @@ aap_weight: 1.0
 mip_weight: 0.2
 map_weight: 1.0
 sp_weight: 0.5
-train_stage: "pretrain"
-item_attribute: "class"
-pretrain_epochs: 500
-save_step: 10
-pre_model_path: ""
