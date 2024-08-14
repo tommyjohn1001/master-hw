@@ -68,12 +68,18 @@ def objective_function(config_dict=None, config_file_list=None):
 
     # Start training
     try:
-        if model_name not in ["S3Rec"]:
-            trainer.fit(train_data, valid_data, verbose=True)
-        else:
+        if model_name in ["S3Rec"]:
             # First, pre-train
-            pass
-            # TODO: HoangLe [Aug-14]: Continue this
+            # NOTE: HoangLe [Aug-14]: How to check if pre-train is done
+
+            config["train_stage"] = "pretrain"
+            config["save_step"] = 1
+
+            trainer.fit(train_data, valid_data, verbose=True, show_progress=True)
+
+            exit()
+
+        trainer.fit(train_data, valid_data, verbose=True, show_progress=True)
     except ValueError as e:
         if str(e) == "Training loss is nan":
             pass
@@ -151,7 +157,7 @@ def main():
 
         # For data
         "dataset": args.dataset,
-        "load_col": {"inter": ["user_id", "item_id", "timestamp"]},
+        # "load_col": {"inter": ["user_id", "item_id", "timestamp"]},
         "scheme": args.scheme,
         "cutoff_time": args.cutoff_time,
         'normalize_all': False,
@@ -163,6 +169,7 @@ def main():
         "eval_step": 5,
         "stopping_step": 5,
         "learning_rate": 1e-3,
+        "pretrain_epochs": 1,
         
         # For evaluation
         "eval_batch_size": 4096,

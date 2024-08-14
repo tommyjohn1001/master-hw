@@ -1,0 +1,7 @@
+learning_rate choice [0.001,0.0005,0.0001]
+attn_dropout_prob choice [0.1,0.2,0.3]
+hidden_dropout_prob choice [0.1,0.2,0.3]
+n_heads choice [1,2]
+n_layers choice [1,2]
+train_batch_size choice [512]
+eval_batch_size choice [512]
