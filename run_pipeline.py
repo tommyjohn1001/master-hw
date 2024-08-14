@@ -165,7 +165,8 @@ def main():
         "scheme": args.scheme,
         "cutoff_time": args.cutoff_time,
         'normalize_all': False,
-        'user_inter_num_interval': "[10,inf)",
+        'user_inter_num_interval': "[5,inf)",
+        'item_inter_num_interval': "[5,inf)",
 
         # For training
         "epochs": 60,
