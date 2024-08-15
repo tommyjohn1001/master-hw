@@ -1,0 +1,5 @@
+load_col:
+  inter: [user_id, item_id, timestamp]
+  item: [item_id, genre]
+selected_features: [genre]
+item_attribute: genre

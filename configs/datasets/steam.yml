@@ -1,0 +1,7 @@
+USER_ID_FIELD: user_id
+ITEM_ID_FIELD: product_id
+load_col:
+  inter: [user_id, product_id, timestamp]
+  item: [id, genres]
+selected_features: [genres]
+item_attribute: genres

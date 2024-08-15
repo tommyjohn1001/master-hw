@@ -44,22 +44,28 @@ PATH_DIR_SCRIPT = Path("slurm_scripts")
 # fmt: off
 MODELS = [
     # Sequential
-    # {'name': "NPE", 'options': []},
-    # {'name': "HGN", 'options': []},
-    # {'name': "BERT4Rec", 'options': []},
-    # {'name': "GRU4Rec", 'options': []},
+    {'name': "NPE", 'options': []},
+    {'name': "HGN", 'options': []},
+    {'name': "BERT4Rec", 'options': []},
+    {'name': "GRU4Rec", 'options': []},
+    {'name': "Caser", 'options': []},
+    {'name': "S3Rec", 'options': []},
 
     # General
     {'name': "ItemKNN", 'options': []},
     {'name': "BPR", 'options': ["-l BPR"]},
     {'name': "ENMF", 'options': []},
+    {'name': "LightGCN", 'options': ["-l BPR"]},
 ]
 # fmt: on
 DATASETS = [
     {"name": "ml-1m", "cutoff_date": "991854688"},
     {"name": "amazon-digital-music", "cutoff_date": "1403568000"},
 ]
-SCHEMES = ["so", "loo"]
+SCHEMES = [
+    "so",
+    "loo",
+]
 
 
 def main():

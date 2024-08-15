@@ -1,0 +1,6 @@
+load_col:
+  inter: [user_id, item_id, timestamp]
+  item: [item_id, type]
+selected_features: [type]
+item_attribute: type
+sep: ","

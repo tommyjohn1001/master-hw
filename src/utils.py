@@ -72,6 +72,9 @@ class Paths:
     def get_path_param_conf(self):
         return (self.path_root_conf / f"conf_{self.model}.yml").as_posix()
 
+    def get_path_dataset_conf(self):
+        return (self.path_root_conf / "datasets" / f"{self.dataset}.yml").as_posix()
+
     def get_path_tuning_conf(self):
         return (self.path_root_conf / f"tuning_{self.model}.hyper").as_posix()
 

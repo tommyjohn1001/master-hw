@@ -77,10 +77,14 @@ def objective_function(config_dict=None, config_file_list=None):
                     config, model
                 )
                 trainer.fit(train_data, verbose=True, show_progress=True)
-            else:
-                config["train_stage"] = "finetune"
-                config["pre_model_path"] = config["pretrain_path"]
-                config["train_neg_sample_args"] = None
+
+                logger.info("Finish pre-train")
+
+            logger.info("Start finetune")
+
+            config["train_stage"] = "finetune"
+            config["pre_model_path"] = config["pretrain_path"]
+            config["train_neg_sample_args"] = None
 
         trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
         trainer.fit(train_data, valid_data, verbose=True, show_progress=True)
@@ -161,7 +165,6 @@ def main():
 
         # For data
         "dataset": args.dataset,
-        # "load_col": {"inter": ["user_id", "item_id", "timestamp"]},
         "scheme": args.scheme,
         "cutoff_time": args.cutoff_time,
         'normalize_all': False,
@@ -191,7 +194,7 @@ def main():
         'use_gpu': True,
         'data_path': paths.get_path_data_raw(),
         "checkpoint_dir": paths.get_path_dir_ckpt(),
-        "pretrain_path": paths.get_path_pretrain_ckpt(),
+        "pretrain_path": paths.get_path_pretrain_ckpt(save_step=50),
         "show_progress": True,
         'save_dataset': True,
         'dataset_save_path': paths.get_path_data_processed(),
@@ -253,7 +256,11 @@ def main():
         algo=tuning_algo,
         early_stop=early_stop,
         max_evals=max_evals,
-        fixed_config_file_list=[paths.get_path_conf(), paths.get_path_param_conf()],
+        fixed_config_file_list=[
+            paths.get_path_conf(),
+            paths.get_path_param_conf(),
+            paths.get_path_dataset_conf(),
+        ],
         params_file=paths.get_path_tuning_conf(),
     )
     hp.run()

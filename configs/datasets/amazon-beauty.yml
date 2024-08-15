@@ -1,0 +1,5 @@
+load_col:
+  inter: [user_id, item_id, timestamp]
+  item: [item_id, sales_type]
+selected_features: [sales_type]
+item_attribute: sales_type

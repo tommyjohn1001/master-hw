@@ -1,0 +1,5 @@
+load_col:
+  inter: [user_id, item_id, timestamp]
+  item: [item_id, categories]
+selected_features: [categories]
+item_attribute: categories
