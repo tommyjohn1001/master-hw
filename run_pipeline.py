@@ -21,8 +21,21 @@ def objective_function(config_dict=None, config_file_list=None):
         config_file_list=config_file_list,
     )
 
+    if config["loss_type"] is None:
+        config["loss_type"] = "CE"
+
+    match config["loss_type"]:
+        case "CE":
+            config["train_neg_sample_args"] = None
+        case "BPR":
+            pass
+        case _:
+            raise NotImplementedError()
+
     init_seed(config["seed"], config["reproducibility"])
     logger = getLogger()
+
+    logger.info(config)
 
     logger.info("== START TUNNING ITERATION ==")
 
@@ -220,19 +233,6 @@ def main():
     else:
         raise NotImplementedError()
 
-    if args.loss_type is not None:
-        config_dict["loss_type"] = args.loss_type
-
-    if args.loss_type is None or args.loss_type == "CE":
-        config_dict["train_neg_sample_args"] = None
-    else:
-        config_dict["train_neg_sample_args"] = {
-            "distribution": "uniform",
-            "sample_num": 1,
-            # "dynamic": True,
-            # "candidate_num": 0,
-        }
-
     config = Config(
         config_dict=config_dict,
         config_file_list=[paths.get_path_param_conf()],
@@ -244,7 +244,6 @@ def main():
     utils.init_logger(config, paths)
 
     logger = getLogger()
-    logger.info(config)
 
     # Start tuning
     tuning_algo = "bayes"
