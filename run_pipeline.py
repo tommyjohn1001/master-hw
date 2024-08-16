@@ -100,7 +100,7 @@ def objective_function(config_dict=None, config_file_list=None):
             config["train_neg_sample_args"] = None
 
         trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
-        trainer.fit(train_data, valid_data, verbose=True, show_progress=True)
+        trainer.fit(train_data, verbose=True, show_progress=True)
     except ValueError as e:
         if str(e) == "Training loss is nan":
             pass
@@ -187,8 +187,7 @@ def main():
         # For training
         "epochs": 60,
         "train_batch_size": 4096,
-        "eval_step": 5,
-        "stopping_step": 5,
+        "eval_step": 0,
         "learning_rate": 1e-3,
         "pretrain_epochs": 50,
         "save_step": 50,
