@@ -15,20 +15,23 @@ from src.real_temporal import SimulatedOnlineDataset, SimulatedOnlineSequentialD
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 
-def objective_function(config_dict=None, config_file_list=None):
+def objective_function(config_dict=None, config_file_list: list | None = None):
     config = Config(
         config_dict=config_dict,
         config_file_list=config_file_list,
     )
 
-    if config["loss_type"] is None:
-        config["loss_type"] = "CE"
-
     match config["loss_type"]:
         case "CE":
-            config["train_neg_sample_args"] = None
-        case "BPR":
             pass
+        case "BPR":
+            config["train_neg_sample_args"] = {
+                "distribution": "uniform",
+                "sample_num": 1,
+                "alpha": 1.0,
+                "dynamic": False,
+                "candidate_num": 0,
+            }
         case _:
             raise NotImplementedError()
 
@@ -191,6 +194,8 @@ def main():
         "learning_rate": 1e-3,
         "pretrain_epochs": 50,
         "save_step": 50,
+        "loss_type": "CE",
+        'train_neg_sample_args': None,
         
         # For evaluation
         "eval_batch_size": 4096,
