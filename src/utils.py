@@ -24,7 +24,9 @@ log_colors_config = {
 
 class Paths:
     def __init__(self, model: str, dataset: str, scheme: str) -> None:
-        self.model, self.dataset = model, dataset
+        self.model = model
+        self.dataset = dataset
+        self.scheme = scheme
 
         tag = datetime.now().strftime("%b%d_%H%M%S")
         self.path_root = Path("logs") / f"{tag}_{model}_{dataset}_{scheme}"
@@ -49,10 +51,10 @@ class Paths:
         save_step: int = 50,
         dir_pretrained: str = "pretrained",
     ):
-        file_name = f"{self.model}-{self.dataset}-{save_step}.pth"
-
+        file_name = f"{self.model}-{self.dataset}-{self.scheme}-{save_step}.pth"
         path = Path(dir_pretrained) / file_name
         if not path.exists():
+            file_name = f"{self.model}-{self.dataset}-{save_step}.pth"
             path = self.path_root / "ckpts" / file_name
 
         return path.as_posix()
