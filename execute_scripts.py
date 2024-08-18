@@ -14,7 +14,6 @@ TEMPLATE = """#!/bin/bash
 #SBATCH -o logs/%x_%j.out
 #SBATCH -e logs/%x_%j.err
 #SBATCH -c 1
-#SBATCH -t 3-00:00:00
 #SBATCH --mem=64G
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:v100:1
@@ -55,7 +54,8 @@ MODELS = [
     'Caser',
 
     # General
-    # 'LightGCN',
+    'Pop',
+    'ItemKNN',
     # 'BPR',
     # 'NeuMF',
     # 'SLIMElastic',

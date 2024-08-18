@@ -44,9 +44,18 @@ class Paths:
     def get_path_dir_ckpt(self):
         return (self.path_root / "ckpts").as_posix()
 
-    def get_path_pretrain_ckpt(self, save_step: int = 50):
+    def get_path_pretrain_ckpt(
+        self,
+        save_step: int = 50,
+        dir_pretrained: str = "pretrained",
+    ):
         file_name = f"{self.model}-{self.dataset}-{save_step}.pth"
-        return (self.path_root / "ckpts" / file_name).as_posix()
+
+        path = Path(dir_pretrained) / file_name
+        if not path.exists():
+            path = self.path_root / "ckpts" / file_name
+
+        return path.as_posix()
 
     def get_path_tuning_log(self):
         return (self.path_root / "tune_result.json").as_posix()
@@ -228,10 +237,13 @@ def get_loader(
     """
     assert dataset.inter_feat is not None
 
-    valid_data_active = None
-    test_data_active = None
-    valid_data_inactive = None
-    test_data_inactive = None
+    ARGS_NEG_SAMPLE = {"valid": "pop100", "test": "pop100"}
+    ARGS_NON_NEG_SAMPLE = {"valid": "full", "test": "full"}
+
+    val_act_ns, test_act_ns = None, None
+    val_inact_ns, test_inact_ns = None, None
+    val_act_non, test_act_non = None, None
+    val_inact_non, test_inact_non = None, None
 
     if separate_activeness is True:
         assert cutoff is not None
@@ -259,29 +271,48 @@ def get_loader(
         feat_active = feat[feat["user_id"].isin(user_active)].copy()
         feat_inactive = feat[feat["user_id"].isin(user_inactive)].copy()
 
-        dataset_active = dataset.copy(feat_active)
-        dataset_inactive = dataset.copy(feat_inactive)
+        ds_act = dataset.copy(feat_active)
+        ds_inact = dataset.copy(feat_inactive)
 
-        assert len(dataset) - len(dataset_active) - len(dataset_inactive) == 0
+        assert len(dataset) - len(ds_act) - len(ds_inact) == 0
 
-        # Create active/inactive test dataloader
-        _, valid_data_active, test_data_active = data_preparation(
-            config, dataset_active
-        )
-        _, valid_data_inactive, test_data_inactive = data_preparation(
-            config, dataset_inactive
-        )
+        # Create active/inactive val/test dataloader for negative sampling and non-sampling cases
+        config["eval_args"]["mode"] = ARGS_NEG_SAMPLE
+        _, val_act_ns, test_act_ns = data_preparation(config, ds_act)
+        _, val_inact_ns, test_inact_ns = data_preparation(config, ds_inact)
 
-    train_data, valid_data, test_data = data_preparation(config, dataset)
+        config["eval_args"]["mode"] = ARGS_NON_NEG_SAMPLE
+        ds_act = dataset.copy(feat_active)
+        ds_inact = dataset.copy(feat_inactive)
+
+        _, val_act_non, test_act_non = data_preparation(config, ds_act)
+        _, val_inact_non, test_inact_non = data_preparation(config, ds_inact)
+
+    # Create
+    config["eval_args"]["mode"] = ARGS_NEG_SAMPLE
+    ds = dataset.copy(dataset.inter_feat)
+    train, val_ns, test_ns = data_preparation(config, ds)
+
+    config["eval_args"]["mode"] = ARGS_NON_NEG_SAMPLE
+    _, val_non, test_non = data_preparation(config, dataset)
 
     out = {
-        "train_data": train_data,
-        "valid_data": valid_data,
-        "test_data": test_data,
-        "valid_data_inactive": valid_data_inactive,
-        "valid_data_active": valid_data_active,
-        "test_data_inactive": test_data_inactive,
-        "test_data_active": test_data_active,
+        "train": train,
+        #
+        "val_ns": val_ns,
+        "test_ns": test_ns,
+        "val_non": val_non,
+        "test_non": test_non,
+        #
+        "val_act_ns": val_act_ns,
+        "test_act_ns": test_act_ns,
+        "val_inact_ns": val_inact_ns,
+        "test_inact_ns": test_inact_ns,
+        #
+        "val_act_non": val_act_non,
+        "test_act_non": test_act_non,
+        "val_inact_non": val_inact_non,
+        "test_inact_non": test_inact_non,
     }
 
     return out

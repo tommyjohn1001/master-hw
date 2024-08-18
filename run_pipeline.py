@@ -55,30 +55,32 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
         raise NotImplementedError()
 
     separate_activeness = config["scheme"] == "loo"
-    dataloaders = utils.get_loader(
+    loaders = utils.get_loader(
         dataset, config, separate_activeness, config["cutoff_time"]
     )
 
-    train_data = dataloaders["train_data"]
-    valid_data = dataloaders["valid_data"]
-    test_data = dataloaders["test_data"]
-    valid_data_inactive = dataloaders["valid_data_inactive"]
-    valid_data_active = dataloaders["valid_data_active"]
-    test_data_inactive = dataloaders["test_data_inactive"]
-    test_data_active = dataloaders["test_data_active"]
+    logger.info(f"train          : {len(loaders['train']._dataset)}")
+    logger.info(f"val_ns         : {len(loaders['val_ns']._dataset)}")
+    logger.info(f"test_ns        : {len(loaders['test_ns']._dataset)}")
+    logger.info(f"val_non        : {len(loaders['val_non']._dataset)}")
+    logger.info(f"test_non       : {len(loaders['test_non']._dataset)}")
 
-    logger.info(f"train_dataset         : {len(train_data._dataset)}")
-    logger.info(f"valid_dataset         : {len(valid_data._dataset)}")
-    logger.info(f"test_dataset          : {len(test_data._dataset)}")
-    if valid_data_inactive is not None:
-        logger.info(f"test_dataset_inactive : {len(test_data_inactive._dataset)}")
-        logger.info(f"test_dataset_active   : {len(test_data_active._dataset)}")
-        logger.info(f"valid_dataset_inactive: {len(valid_data_inactive._dataset)}")
-        logger.info(f"valid_dataset_active  : {len(valid_data_active._dataset)}")
+    if loaders["val_act_ns"] is not None:
+        logger.info(f"val_act_ns     : {len(loaders['val_act_ns']._dataset)}")
+        logger.info(f"test_act_ns    : {len(loaders['test_act_ns']._dataset)}")
+        logger.info(f"val_inact_ns   : {len(loaders['val_inact_ns']._dataset)}")
+        logger.info(f"test_inact_ns  : {len(loaders['test_inact_ns']._dataset)}")
+
+        logger.info(f"val_act_non    : {len(loaders['val_act_non']._dataset)}")
+        logger.info(f"test_act_non   : {len(loaders['test_act_non']._dataset)}")
+        logger.info(f"val_inact_non  : {len(loaders['val_inact_non']._dataset)}")
+        logger.info(f"test_inact_non : {len(loaders['test_inact_non']._dataset)}")
 
     # Define model
     model_name = config["model"]
-    model = get_model(model_name)(config, train_data._dataset).to(config["device"])
+    model = get_model(model_name)(config, loaders["train"]._dataset).to(
+        config["device"]
+    )
 
     # Define trainer and start training
     try:
@@ -92,7 +94,7 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
                 trainer = get_trainer(config["MODEL_TYPE"], config["model"])(
                     config, model
                 )
-                trainer.fit(train_data, verbose=True, show_progress=False)
+                trainer.fit(loaders["train"], verbose=True, show_progress=False)
 
                 logger.info("Finish pre-train")
 
@@ -103,9 +105,10 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
             config["train_neg_sample_args"] = None
 
         trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
-        trainer.fit(train_data, verbose=True, show_progress=False)
+        trainer.fit(loaders["train"], verbose=True, show_progress=False)
     except ValueError as e:
         if str(e) == "Training loss is nan":
+            logger.error(str(e))
             pass
         else:
             raise e
@@ -114,50 +117,77 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
     load_best_model = model_name not in ["ItemKNN"]
     valid_metric_name = config["valid_metric"].lower()
 
-    valid_result = dict(trainer.evaluate(valid_data, load_best_model=load_best_model))
+    result_val_ns = dict(
+        trainer.evaluate(loaders["val_ns"], load_best_model=load_best_model)
+    )
+    result_val_non = dict(
+        trainer.evaluate(loaders["val_non"], load_best_model=load_best_model)
+    )
 
-    logger.info(f"valid_result: {valid_result}")
+    logger.info(f"result_val_ns: {result_val_ns}")
+    logger.info(f"result_val_non: {result_val_non}")
 
     # Start testing
-    test_result = dict(trainer.evaluate(test_data, load_best_model=load_best_model))
+    result_test_ns = dict(
+        trainer.evaluate(loaders["test_ns"], load_best_model=load_best_model)
+    )
+    result_test_non = dict(
+        trainer.evaluate(loaders["test_non"], load_best_model=load_best_model)
+    )
 
-    logger.info(f"test_result: {test_result}")
+    logger.info(f"result_test_ns: {result_test_ns}")
+    logger.info(f"result_test_non: {result_test_non}")
 
     out = {
         "model": model_name,
-        "best_valid_score": utils.refine_result(valid_result[valid_metric_name]),
+        "best_valid_score": utils.refine_result(result_val_ns[valid_metric_name]),
         "valid_score_bigger": config["valid_metric_bigger"],
-        "best_valid_result": utils.refine_result(valid_result),
-        "test_result": utils.refine_result(test_result),
+        "best_valid_result": utils.refine_result(result_val_ns),
+        "test_result": utils.refine_result(result_test_ns),
+        #
+        "valid_result_non": utils.refine_result(result_val_non),
+        "test_result_non": utils.refine_result(result_test_non),
     }
 
     # Validate and test separately active and inactive users
     if separate_activeness is True:
-        assert test_data_inactive is not None
-        assert test_data_active is not None
-        assert valid_data_inactive is not None
-        assert valid_data_active is not None
+        result_val_act_ns = dict(
+            trainer.evaluate(loaders["val_act_ns"], load_best_model=load_best_model)
+        )
+        result_test_act_ns = dict(
+            trainer.evaluate(loaders["test_act_ns"], load_best_model=load_best_model)
+        )
+        result_val_inact_ns = dict(
+            trainer.evaluate(loaders["val_inact_ns"], load_best_model=load_best_model)
+        )
+        result_test_inact_ns = dict(
+            trainer.evaluate(loaders["test_inact_ns"], load_best_model=load_best_model)
+        )
 
-        valid_result_inactive = dict(
-            trainer.evaluate(valid_data_inactive, load_best_model=load_best_model)
+        result_val_act_non = dict(
+            trainer.evaluate(loaders["val_act_non"], load_best_model=load_best_model)
         )
-        valid_result_active = dict(
-            trainer.evaluate(valid_data_active, load_best_model=load_best_model)
+        result_test_act_non = dict(
+            trainer.evaluate(loaders["test_act_non"], load_best_model=load_best_model)
         )
-
-        test_result_inactive = dict(
-            trainer.evaluate(test_data_inactive, load_best_model=load_best_model)
+        result_val_inact_non = dict(
+            trainer.evaluate(loaders["val_inact_non"], load_best_model=load_best_model)
         )
-        test_result_active = dict(
-            trainer.evaluate(test_data_active, load_best_model=load_best_model)
+        result_test_inact_non = dict(
+            trainer.evaluate(loaders["test_inact_non"], load_best_model=load_best_model)
         )
 
         out = {
             **out,
-            "valid_result_inactive": utils.refine_result(valid_result_inactive),
-            "valid_result_active": utils.refine_result(valid_result_active),
-            "test_result_inactive": utils.refine_result(test_result_inactive),
-            "test_result_active": utils.refine_result(test_result_active),
+            "result_val_act_ns": utils.refine_result(result_val_act_ns),
+            "result_test_act_ns": utils.refine_result(result_test_act_ns),
+            "result_val_inact_ns": utils.refine_result(result_val_inact_ns),
+            "result_test_inact_ns": utils.refine_result(result_test_inact_ns),
+            #
+            "result_val_act_non": utils.refine_result(result_val_act_non),
+            "result_test_act_non": utils.refine_result(result_test_act_non),
+            "result_val_inact_non": utils.refine_result(result_val_inact_non),
+            "result_test_inact_non": utils.refine_result(result_test_inact_non),
         }
 
     logger.info("== END TUNNING ITERATION ==")
@@ -251,8 +281,8 @@ def main():
 
     # Start tuning
     tuning_algo = "bayes"
-    early_stop = 5
-    max_evals = 15
+    early_stop = 4
+    max_evals = 10
 
     hp = HyperTuning(
         objective_function=objective_function,
