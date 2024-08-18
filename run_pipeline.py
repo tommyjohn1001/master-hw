@@ -92,7 +92,7 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
                 trainer = get_trainer(config["MODEL_TYPE"], config["model"])(
                     config, model
                 )
-                trainer.fit(train_data, verbose=True, show_progress=True)
+                trainer.fit(train_data, verbose=True, show_progress=False)
 
                 logger.info("Finish pre-train")
 
@@ -103,7 +103,7 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
             config["train_neg_sample_args"] = None
 
         trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
-        trainer.fit(train_data, verbose=True, show_progress=True)
+        trainer.fit(train_data, verbose=True, show_progress=False)
     except ValueError as e:
         if str(e) == "Training loss is nan":
             pass

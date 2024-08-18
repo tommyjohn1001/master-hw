@@ -44,23 +44,29 @@ PATH_DIR_SCRIPT = Path("slurm_scripts")
 # fmt: off
 MODELS = [
     # Sequential
-    {'name': "NPE", 'options': []},
-    {'name': "HGN", 'options': []},
-    {'name': "BERT4Rec", 'options': []},
-    {'name': "GRU4Rec", 'options': []},
-    {'name': "Caser", 'options': []},
-    {'name': "S3Rec", 'options': []},
+    'FPMC',
+    'SASRec',
+    'BERT4Rec',
+    'GRU4Rec',
+    'S3Rec',
+    'SINE',
+    'LightSANs',
+    'FEARec',
+    'Caser',
 
     # General
-    {'name': "ItemKNN", 'options': []},
-    {'name': "BPR", 'options': ["-l BPR"]},
-    {'name': "ENMF", 'options': []},
-    {'name': "LightGCN", 'options': ["-l BPR"]},
+    # 'LightGCN',
+    # 'BPR',
+    # 'NeuMF',
+    # 'SLIMElastic',
+    # 'LightGCN',
 ]
 # fmt: on
 DATASETS = [
     {"name": "ml-1m", "cutoff_date": "991854688"},
-    {"name": "amazon-digital-music", "cutoff_date": "1403568000"},
+    # {"name": "amazon-beauty", "cutoff_date": "1373328000"},
+    # {"name": "yelp", "cutoff_date": "1496783090"},
+    # {"name": "steam", "cutoff_date": "1476576000"},
 ]
 SCHEMES = [
     "so",
@@ -82,19 +88,18 @@ def main():
         # Tailor command
         cutoff_date = dataset["cutoff_date"]
 
-        arg_model = model["name"]
+        arg_model = model
         arg_dataset = dataset["name"]
         arg_scheme = f"-s {scheme}"
         arg_cutoff_date = f"-t {cutoff_date}"
-        arg_options = " ".join(model["options"])
 
-        cmd = f"python run_pipeline.py -m {arg_model} -d {arg_dataset} {arg_scheme} {arg_cutoff_date} {arg_options}"
+        cmd = f"python run_pipeline.py -m {arg_model} -d {arg_dataset} {arg_scheme} {arg_cutoff_date}"
 
         # Create script
         script = TEMPLATE.replace("<<<COMMAND>>>", cmd)
 
         # Store script
-        script_name = f"{tag}-{arg_model}-{arg_dataset}-{arg_scheme}.sbatch"
+        script_name = f"{tag}-{arg_model}-{arg_dataset}-{scheme}.sbatch"
         path = PATH_DIR_SCRIPT / script_name
 
         if path.exists():
