@@ -1,4 +1,4 @@
-embedding_size choice [64,128,256,512]
+embedding_size choice [64]
 learning_rate choice [0.01,0.005,0.001,0.0005,0.0001]
 prototype_size choice [50,100,500,1000,2000,5000]
 interest_size choice [4,8,12,16]
