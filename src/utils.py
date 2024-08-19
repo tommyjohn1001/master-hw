@@ -51,13 +51,9 @@ class Paths:
         save_step: int = 50,
         dir_pretrained: str = "pretrained",
     ):
-        file_name = f"{self.model}-{self.dataset}-{self.scheme}-{save_step}.pth"
-        path = Path(dir_pretrained) / file_name
-        if not path.exists():
-            file_name = f"{self.model}-{self.dataset}-{save_step}.pth"
-            path = self.path_root / "ckpts" / file_name
+        file_name = f"{self.model}-{self.dataset}-{save_step}.pth"
 
-        return path.as_posix()
+        return (self.path_root / "ckpts" / file_name).as_posix()
 
     def get_path_tuning_log(self):
         return (self.path_root / "tune_result.json").as_posix()

@@ -12,3 +12,6 @@ aap_weight: 1.0
 mip_weight: 0.2
 map_weight: 1.0
 sp_weight: 0.5
+epochs: 40
+pretrain_epochs: 20
+save_step: 20

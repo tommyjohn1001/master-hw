@@ -1,7 +1,6 @@
 import json
 import warnings
 from logging import getLogger
-from pathlib import Path
 
 import yaml
 from recbole.config import Config
@@ -76,36 +75,42 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
         logger.info(f"val_inact_non  : {len(loaders['val_inact_non']._dataset)}")
         logger.info(f"test_inact_non : {len(loaders['test_inact_non']._dataset)}")
 
-    # Define model
+    # Pretrain for specific models
     model_name = config["model"]
+
+    if model_name in ["S3Rec"]:
+        logger.info("Start pre-train...")
+
+        config["train_stage"] = "pretrain"
+
+        model = get_model(model_name)(config, loaders["train"]._dataset).to(
+            config["device"]
+        )
+
+        trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
+        trainer.fit(loaders["train"], verbose=True, show_progress=True)
+
+        logger.info("Finish pre-train. Start finetune")
+
+        config["train_stage"] = "finetune"
+        config["train_neg_sample_args"] = {
+            "distribution": "none",
+            "sample_num": "none",
+            "alpha": "none",
+            "dynamic": False,
+            "candidate_num": 0,
+        }
+
+    # Define model
     model = get_model(model_name)(config, loaders["train"]._dataset).to(
         config["device"]
     )
 
-    # Define trainer and start training
+    # Define, model trainer and start training
+    trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
+
     try:
-        if model_name in ["S3Rec"]:
-            # First, pre-train if weight not available
-            if not Path(config["pretrain_path"]).exists():
-                logger.info("Pre-train weight not found. Start pre-train...")
-
-                config["train_stage"] = "pretrain"
-
-                trainer = get_trainer(config["MODEL_TYPE"], config["model"])(
-                    config, model
-                )
-                trainer.fit(loaders["train"], verbose=True, show_progress=False)
-
-                logger.info("Finish pre-train")
-
-            logger.info("Start finetune")
-
-            config["train_stage"] = "finetune"
-            config["pre_model_path"] = config["pretrain_path"]
-            config["train_neg_sample_args"] = None
-
-        trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
-        trainer.fit(loaders["train"], verbose=True, show_progress=False)
+        trainer.fit(loaders["train"], verbose=True, show_progress=True)
     except ValueError as e:
         if str(e) == "Training loss is nan":
             logger.error(str(e))
@@ -222,8 +227,7 @@ def main():
         "train_batch_size": 4096,
         "eval_step": 0,
         "learning_rate": 1e-3,
-        "pretrain_epochs": 50,
-        "save_step": 50,
+
         "loss_type": "CE",
         'train_neg_sample_args': None,
         
@@ -241,7 +245,7 @@ def main():
         'use_gpu': True,
         'data_path': paths.get_path_data_raw(),
         "checkpoint_dir": paths.get_path_dir_ckpt(),
-        "pretrain_path": paths.get_path_pretrain_ckpt(save_step=50),
+        "pre_model_path": paths.get_path_pretrain_ckpt(save_step=20),
         "show_progress": True,
         'save_dataset': True,
         'dataset_save_path': paths.get_path_data_processed(),
