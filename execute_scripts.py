@@ -13,7 +13,8 @@ TEMPLATE = """#!/bin/bash
 #SBATCH --account=Project_2010450
 #SBATCH -o logs/%x_%j.out
 #SBATCH -e logs/%x_%j.err
-#SBATCH -c 1
+#SBATCH -c 4
+#SBATCH -t 3-00:00:00
 #SBATCH --mem=64G
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:v100:1
@@ -43,19 +44,19 @@ PATH_DIR_SCRIPT = Path("slurm_scripts")
 # fmt: off
 MODELS = [
     # Sequential
-    'FPMC',
-    'SASRec',
-    'BERT4Rec',
-    'GRU4Rec',
+    # 'FPMC',
+    # 'SASRec',
+    # 'BERT4Rec',
+    # 'GRU4Rec',
     'S3Rec',
-    'SINE',
-    'LightSANs',
-    'FEARec',
-    'Caser',
+    # 'SINE',
+    # 'LightSANs',
+    # 'FEARec',
+    # 'Caser',
 
     # General
-    'Pop',
-    'ItemKNN',
+    # 'Pop',
+    # 'ItemKNN',
     # 'BPR',
     # 'NeuMF',
     # 'SLIMElastic',

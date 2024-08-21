@@ -88,7 +88,7 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
         )
 
         trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
-        trainer.fit(loaders["train"], verbose=True, show_progress=True)
+        trainer.fit(loaders["train"], verbose=True, show_progress=False)
 
         logger.info("Finish pre-train. Start finetune")
 
@@ -110,7 +110,7 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
     trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
 
     try:
-        trainer.fit(loaders["train"], verbose=True, show_progress=True)
+        trainer.fit(loaders["train"], verbose=True, show_progress=False)
     except ValueError as e:
         if str(e) == "Training loss is nan":
             logger.error(str(e))
@@ -285,8 +285,12 @@ def main():
 
     # Start tuning
     tuning_algo = "bayes"
-    early_stop = 4
-    max_evals = 10
+    if args.model in ["Caser"]:
+        early_stop = 3
+        max_evals = 5
+    else:
+        early_stop = 4
+        max_evals = 15
 
     hp = HyperTuning(
         objective_function=objective_function,
