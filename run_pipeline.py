@@ -182,6 +182,15 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
             trainer.evaluate(loaders["test_inact_non"], load_best_model=load_best_model)
         )
 
+        logger.info(f"result_val_act_ns: {result_val_act_ns}")
+        logger.info(f"result_test_act_ns: {result_test_act_ns}")
+        logger.info(f"result_val_inact_ns: {result_val_inact_ns}")
+        logger.info(f"result_test_inact_ns: {result_test_inact_ns}")
+        logger.info(f"result_val_act_non: {result_val_act_non}")
+        logger.info(f"result_test_act_non: {result_test_act_non}")
+        logger.info(f"result_val_inact_non: {result_val_inact_non}")
+        logger.info(f"result_test_inact_non: {result_test_inact_non}")
+
         out = {
             **out,
             "result_val_act_ns": utils.refine_result(result_val_act_ns),
@@ -223,7 +232,7 @@ def main():
         'item_inter_num_interval': "[5,inf)",
 
         # For training
-        "epochs": 60,
+        "epochs": 20,
         "train_batch_size": 4096,
         "eval_step": 0,
         "learning_rate": 1e-3,
@@ -285,12 +294,8 @@ def main():
 
     # Start tuning
     tuning_algo = "bayes"
-    if args.model in ["Caser"]:
-        early_stop = 3
-        max_evals = 5
-    else:
-        early_stop = 4
-        max_evals = 15
+    early_stop = 3
+    max_evals = 7
 
     hp = HyperTuning(
         objective_function=objective_function,
