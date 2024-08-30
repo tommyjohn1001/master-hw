@@ -123,24 +123,32 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
     valid_metric_name = config["valid_metric"].lower()
 
     result_val_ns = dict(
-        trainer.evaluate(loaders["val_ns"], load_best_model=load_best_model)
+        trainer.evaluate(
+            loaders["val_ns"], load_best_model=load_best_model, show_progress=True
+        )
     )
-    result_val_non = dict(
-        trainer.evaluate(loaders["val_non"], load_best_model=load_best_model)
-    )
-
     logger.info(f"result_val_ns: {result_val_ns}")
+
+    result_val_non = dict(
+        trainer.evaluate(
+            loaders["val_non"], load_best_model=load_best_model, show_progress=True
+        )
+    )
     logger.info(f"result_val_non: {result_val_non}")
 
     # Start testing
     result_test_ns = dict(
-        trainer.evaluate(loaders["test_ns"], load_best_model=load_best_model)
+        trainer.evaluate(
+            loaders["test_ns"], load_best_model=load_best_model, show_progress=True
+        )
     )
-    result_test_non = dict(
-        trainer.evaluate(loaders["test_non"], load_best_model=load_best_model)
-    )
-
     logger.info(f"result_test_ns: {result_test_ns}")
+
+    result_test_non = dict(
+        trainer.evaluate(
+            loaders["test_non"], load_best_model=load_best_model, show_progress=True
+        )
+    )
     logger.info(f"result_test_non: {result_test_non}")
 
     out = {
@@ -157,38 +165,75 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
     # Validate and test separately active and inactive users
     if separate_activeness is True:
         result_val_act_ns = dict(
-            trainer.evaluate(loaders["val_act_ns"], load_best_model=load_best_model)
+            trainer.evaluate(
+                loaders["val_act_ns"],
+                load_best_model=load_best_model,
+                show_progress=True,
+            )
         )
+        logger.info(f"result_val_act_ns: {result_val_act_ns}")
+
         result_test_act_ns = dict(
-            trainer.evaluate(loaders["test_act_ns"], load_best_model=load_best_model)
+            trainer.evaluate(
+                loaders["test_act_ns"],
+                load_best_model=load_best_model,
+                show_progress=True,
+            )
         )
+        logger.info(f"result_test_act_ns: {result_test_act_ns}")
+
         result_val_inact_ns = dict(
-            trainer.evaluate(loaders["val_inact_ns"], load_best_model=load_best_model)
+            trainer.evaluate(
+                loaders["val_inact_ns"],
+                load_best_model=load_best_model,
+                show_progress=True,
+            )
         )
+        logger.info(f"result_val_inact_ns: {result_val_inact_ns}")
+
         result_test_inact_ns = dict(
-            trainer.evaluate(loaders["test_inact_ns"], load_best_model=load_best_model)
+            trainer.evaluate(
+                loaders["test_inact_ns"],
+                load_best_model=load_best_model,
+                show_progress=True,
+            )
         )
+        logger.info(f"result_test_inact_ns: {result_test_inact_ns}")
 
         result_val_act_non = dict(
-            trainer.evaluate(loaders["val_act_non"], load_best_model=load_best_model)
+            trainer.evaluate(
+                loaders["val_act_non"],
+                load_best_model=load_best_model,
+                show_progress=True,
+            )
         )
-        result_test_act_non = dict(
-            trainer.evaluate(loaders["test_act_non"], load_best_model=load_best_model)
-        )
-        result_val_inact_non = dict(
-            trainer.evaluate(loaders["val_inact_non"], load_best_model=load_best_model)
-        )
-        result_test_inact_non = dict(
-            trainer.evaluate(loaders["test_inact_non"], load_best_model=load_best_model)
-        )
-
-        logger.info(f"result_val_act_ns: {result_val_act_ns}")
-        logger.info(f"result_test_act_ns: {result_test_act_ns}")
-        logger.info(f"result_val_inact_ns: {result_val_inact_ns}")
-        logger.info(f"result_test_inact_ns: {result_test_inact_ns}")
         logger.info(f"result_val_act_non: {result_val_act_non}")
+
+        result_test_act_non = dict(
+            trainer.evaluate(
+                loaders["test_act_non"],
+                load_best_model=load_best_model,
+                show_progress=True,
+            )
+        )
         logger.info(f"result_test_act_non: {result_test_act_non}")
+
+        result_val_inact_non = dict(
+            trainer.evaluate(
+                loaders["val_inact_non"],
+                load_best_model=load_best_model,
+                show_progress=True,
+            )
+        )
         logger.info(f"result_val_inact_non: {result_val_inact_non}")
+
+        result_test_inact_non = dict(
+            trainer.evaluate(
+                loaders["test_inact_non"],
+                load_best_model=load_best_model,
+                show_progress=True,
+            )
+        )
         logger.info(f"result_test_inact_non: {result_test_inact_non}")
 
         out = {

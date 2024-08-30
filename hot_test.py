@@ -10,6 +10,7 @@ from recbole.data import create_dataset
 from recbole.utils import ModelType, get_model, get_trainer, init_seed
 
 import src.utils as utils
+from src.real_temporal import SimulatedOnlineSequentialDataset, SimulatedOnlineDataset
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
