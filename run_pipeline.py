@@ -102,12 +102,19 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
         }
 
     # Define model
+    logger.info("Define model")
+
     model = get_model(model_name)(config, loaders["train"]._dataset).to(
         config["device"]
     )
 
-    # Define, model trainer and start training
+    # Define trainer
+    logger.info("Define trainer")
+
     trainer = get_trainer(config["MODEL_TYPE"], config["model"])(config, model)
+
+    # Start training
+    logger.info("Start training")
 
     try:
         trainer.fit(loaders["train"], verbose=True, show_progress=False)
@@ -301,10 +308,10 @@ def main():
         "checkpoint_dir": paths.get_path_dir_ckpt(),
         "pre_model_path": paths.get_path_pretrain_ckpt(save_step=20),
         "show_progress": True,
-        'save_dataset': True,
-        'dataset_save_path': paths.get_path_data_processed(),
-        'save_dataloaders': True,
-        'dataloaders_save_path': paths.get_path_dataloader(),
+        'save_dataset': False,
+        # 'dataset_save_path': paths.get_path_data_processed(),
+        'save_dataloaders': False,
+        # 'dataloaders_save_path': paths.get_path_dataloader(),
     }
     # fmt: on
 
