@@ -10,7 +10,6 @@ from recbole.data import create_dataset
 from recbole.utils import ModelType, get_model, get_trainer, init_seed
 
 import src.utils as utils
-from src.real_temporal import SimulatedOnlineSequentialDataset, SimulatedOnlineDataset
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -43,6 +42,7 @@ def main():
     config = chkpt["config"]
     # config["device"] = torch.device("cpu")
     # config["use_gpu"] = False
+    config["eval_batch_size"] = 65536
 
     init_seed(config["seed"], config["reproducibility"])
     logger = getLogger()

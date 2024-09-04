@@ -14,7 +14,7 @@ TEMPLATE = """#!/bin/sh
 #SBATCH -e logs/%x_%j.err
 #SBATCH -c 4
 #SBATCH -t 2-00:00:00
-#SBATCH --mem=32G
+#SBATCH --mem=64G
 <<<HARDWARE>>>
 #SBATCH --chdir=/home/hoanghu/thesis/
 
@@ -43,8 +43,7 @@ SBATCH_GPU = """#SBATCH -p gpu
 #SBATCH --constraint=v100
 #SBATCH --gres=gpu:1"""
 
-SBATCH_CPU = """#SBATCH -p medium
-#SBATCH --constraint=intel"""
+SBATCH_CPU = """#SBATCH -p medium"""
 
 PATH_DIR_SCRIPT = Path("slurm_scripts")
 
@@ -62,18 +61,18 @@ MODELS = [
     'Caser',
 
     # General
-    # 'Pop',
-    # 'SLIMElastic',
-    # 'ItemKNN',
-    # 'BPR',
-    # 'NeuMF',
-    # 'LightGCN',
+    'Pop',
+    'SLIMElastic',
+    'ItemKNN',
+    'BPR',
+    'NeuMF',
+    'LightGCN',
 ]
 # fmt: on
 DATASETS = [
     # {"name": "ml-1m", "cutoff_date": "991854688"},
-    {"name": "amazon-beauty", "cutoff_date": "1373328000"},
-    # {"name": "yelp", "cutoff_date": "1496783090"},
+    # {"name": "amazon-beauty", "cutoff_date": "1373328000"},
+    {"name": "yelp", "cutoff_date": "1496783090"},
     # {"name": "steam", "cutoff_date": "1476576000"},
 ]
 SCHEMES = [
@@ -104,9 +103,7 @@ def main():
         cmd = f"srun python run_pipeline.py -m {arg_model} -d {arg_dataset} {arg_scheme} {arg_cutoff_date}"
 
         # Create script
-        hardware = (
-            SBATCH_CPU if model in ["Pop", "SLIMElastic", "Caser"] else SBATCH_GPU
-        )
+        hardware = SBATCH_CPU if model in ["Pop"] else SBATCH_GPU
         script = TEMPLATE.replace("<<<HARDWARE>>>", hardware)
         script = script.replace("<<<COMMAND>>>", cmd)
 
