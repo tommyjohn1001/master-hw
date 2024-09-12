@@ -74,7 +74,6 @@ class SimulatedOnlineDataset(Dataset):
             raise NotImplementedError("The split_mode must be 'CO'.")
         elif split_mode == "CO":
             cutoff = split_args["CO"]
-            # NOTE: HoangLe [Jun-05]: cutoff may come with different types: string, int
 
             group_by = self.config["eval_args"]["group_by"]
             datasets = self.split_by_cuttoff(cutoff=cutoff, group_by=group_by)
@@ -142,13 +141,11 @@ class SimulatedOnlineDataset(Dataset):
             )
             n_test = len(df_each_user) - n_trainval
 
-            if n_trainval == 0:
+            if n_trainval <= 1:
                 continue
 
-            if n_trainval >= 1:
-                indices_train.extend(grouped_index[: n_trainval - 1])
-            if n_trainval >= 2:
-                indices_val.append(grouped_index[n_trainval - 1])
+            indices_train.extend(grouped_index[: n_trainval - 1])
+            indices_val.append(grouped_index[n_trainval - 1])
             if n_test > 0:
                 indices_test.append(grouped_index[n_trainval])
 
