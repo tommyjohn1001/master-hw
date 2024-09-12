@@ -106,3 +106,33 @@ df = pd.read_csv(
     engine=engine,
 )
 ```
+
+3. With `NCL`
+
+In file `recbole/model/general_recommender/ncl.py` line **130**, replace the line
+
+```python
+A._update(data_dict)
+```
+
+with
+
+```python
+for (i, j), v in data_dict.items():
+    A[i, j] = v
+```
+
+3. With `NGCF`
+
+In file `recbole/model/general_recommender/ngcf.py` line **108**, replace the line
+
+```python
+A._update(data_dict)
+```
+
+with
+
+```python
+for (i, j), v in data_dict.items():
+    A[i, j] = v
+```
