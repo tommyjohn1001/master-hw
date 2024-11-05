@@ -12,7 +12,7 @@ def get_args():
         "-m", dest="mode", type=str, choices=["client", "server"], default="server"
     )
     parser.add_argument("-i", dest="host", type=str, default=None)
-    parser.add_argument("-p", dest="port", type=int, default=32556)
+    parser.add_argument("-p", dest="port", type=int, default=32456)
 
     args = parser.parse_args()
 
