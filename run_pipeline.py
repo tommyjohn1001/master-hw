@@ -6,10 +6,9 @@ import yaml
 from recbole.config import Config
 from recbole.data import create_dataset
 from recbole.trainer import HyperTuning
-from recbole.utils import ModelType, get_model, get_trainer, init_seed
+from recbole.utils import get_model, get_trainer, init_seed
 
 from src import utils
-from src.real_temporal import SimulatedOnlineDataset, SimulatedOnlineSequentialDataset
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -42,18 +41,9 @@ def objective_function(config_dict=None, config_file_list: list | None = None):
     logger.info("== START TUNNING ITERATION ==")
 
     # Define data related things
-    if config["scheme"] == "so":
-        match config["MODEL_TYPE"]:
-            case ModelType.GENERAL | ModelType.TRADITIONAL:
-                dataset = SimulatedOnlineDataset(config)
-            case ModelType.SEQUENTIAL:
-                dataset = SimulatedOnlineSequentialDataset(config)
-    elif config["scheme"] == "loo":
-        dataset = create_dataset(config)
-    else:
-        raise NotImplementedError()
+    dataset = create_dataset(config)
 
-    separate_activeness = config["scheme"] == "loo"
+    separate_activeness = False
     loaders = utils.get_loader(
         dataset, config, separate_activeness, config["cutoff_time"]
     )

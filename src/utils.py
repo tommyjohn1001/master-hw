@@ -5,9 +5,11 @@ from datetime import datetime
 from pathlib import Path
 
 import colorlog
+import networkx as nx
 import numpy as np
 import pandas as pd
 from colorama import init
+from pandas import DataFrame
 from recbole.config import Config
 from recbole.data import create_dataset, data_preparation
 from recbole.data.dataset import Dataset
@@ -84,6 +86,37 @@ class Paths:
 
     def get_path_tuning_conf(self):
         return (self.path_root_conf / f"tuning_{self.model}.hyper").as_posix()
+
+
+def filter_kcore(
+    df: DataFrame, k: int = 5, user_field: str = "user_id", item_field: str = "item_id"
+) -> DataFrame:
+    assert user_field in df and item_field in df and "timestamp" in df
+
+    df = df.copy(deep=True)
+    df[item_field] = df[item_field].astype(str)
+
+    B = nx.Graph()
+    B.add_nodes_from(df[user_field], bipartite=0)
+    B.add_nodes_from(df[item_field], bipartite=1)
+    B.add_weighted_edges_from(
+        [
+            (
+                row.__getattribute__(user_field),
+                row.__getattribute__(item_field),
+                row.timestamp,
+            )
+            for row in df.itertuples()
+        ],
+        weight="timestamp",
+    )
+
+    B_filtered = nx.k_core(B, k=5)
+    df_filtered = nx.to_pandas_edgelist(B_filtered)
+    df_filtered.columns = df.columns
+    df_filtered[item_field] = df_filtered[item_field].astype(np.int64)
+
+    return df_filtered
 
 
 def init_logger(config, paths: Paths):
@@ -286,13 +319,56 @@ def get_loader(
         _, val_act_non, test_act_non = data_preparation(config, ds_act)
         _, val_inact_non, test_inact_non = data_preparation(config, ds_inact)
 
+    # Discard interactions
+    tgt_size = 0
+    item_field = ""
+    user_field = "user_id"
+    ratio = 1
+    match dataset.dataset_name:
+        case "ml-1m":
+            tgt_size = 832390
+            item_field = "item_id"
+            ratio = 1.0185
+        case "yelp":
+            tgt_size = 2763851
+            item_field = "item_id"
+            ratio = 1.352
+        case "steam":
+            tgt_size = 107665
+            item_field = "product_id"
+            ratio = 1.43
+        case "amazon-beauty":
+            tgt_size = 70486
+            item_field = "item_id"
+            ratio = 1.935
+        case _:
+            raise NotImplementedError()
+
+    df = dataset.inter_feat.copy(deep=True)
+    users = (
+        df.groupby(user_field)["timestamp"]
+        .count()
+        .reset_index()
+        .rename(columns={"timestamp": "count"})
+    )
+    users = users.sample(n=len(users))
+
+    users["cum_count"] = users["count"].cumsum()
+
+    user_ids = users[users["cum_count"] <= tgt_size * ratio]["user_id"]
+    df = df[df["user_id"].isin(user_ids)]
+
+    # Apply 5-core filtering
+    df = filter_kcore(df, 5, user_field, item_field)
+
     # Create
     config["eval_args"]["mode"] = ARGS_NEG_SAMPLE
-    ds = dataset.copy(dataset.inter_feat)
+    ds = dataset.copy(df.copy(deep=True))
     train, val_ns, test_ns = data_preparation(config, ds)
 
     config["eval_args"]["mode"] = ARGS_NON_NEG_SAMPLE
-    _, val_non, test_non = data_preparation(config, dataset)
+    ds = dataset.copy(df.copy(deep=True))
+    _, val_non, test_non = data_preparation(config, ds)
 
     out = {
         "train": train,
